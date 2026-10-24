@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.env
+.env.local
+.env*.local
+data/*
+!data/.gitkeep
+storage/*
+!storage/.gitkeep
+backups/*
+!backups/.gitkeep
+tests
+coverage
+*.log
+.DS_Store

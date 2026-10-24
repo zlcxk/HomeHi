@@ -1,0 +1,36 @@
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: file:../data/homehi.db
+      STORAGE_DIR: /app/storage
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./storage:/app/storage
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["npm", "run", "worker:prod"]
+    env_file: .env
+    environment:
+      DATABASE_URL: file:../data/homehi.db
+      STORAGE_DIR: /app/storage
+      NODE_ENV: production
+    volumes:
+      - ./data:/app/data
+      - ./storage:/app/storage
+    depends_on:
+      web:
+        condition: service_healthy

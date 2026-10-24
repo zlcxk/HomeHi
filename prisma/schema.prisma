@@ -1,0 +1,377 @@
+// HomeHi data model — SQLite for zero-setup local use.
+// All timestamps are stored as UTC. Visibility is one of HOUSEHOLD | PRIVATE.
+// String enums are used because SQLite does not support Prisma enums.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  passwordHash      String
+  displayName       String
+  timezone          String   @default("Asia/Shanghai")
+  defaultVisibility String   @default("HOUSEHOLD")
+  notifyEvent       Boolean  @default(true)
+  notifyTask        Boolean  @default(true)
+  notifyOther       Boolean  @default(true)
+  avatarMediaId     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastLoginAt       DateTime?
+
+  memberships     HouseholdMember[]
+  entries         Entry[]            @relation("EntryCreator")
+  media           Media[]
+  albums          Album[]
+  events          CalendarEvent[]
+  tasksCreated    Task[]             @relation("TaskCreator")
+  tasksAssigned   Task[]             @relation("TaskAssignee")
+  taskCompletions TaskCompletion[]
+  linkedProfiles  FamilyProfile[]    @relation("ProfileUser")
+}
+
+model Household {
+  id        String   @id @default(cuid())
+  name      String
+  timezone  String   @default("Asia/Shanghai")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members       HouseholdMember[]
+  profiles      FamilyProfile[]
+  entries       Entry[]
+  media         Media[]
+  albums        Album[]
+  tags          Tag[]
+  events        CalendarEvent[]
+  tasks         Task[]
+  reminders     ReminderRule[]
+  notifications Notification[]
+  settings      AppSetting[]
+}
+
+model HouseholdMember {
+  id          String   @id @default(cuid())
+  householdId String
+  userId      String
+  role        String   @default("MEMBER")
+  createdAt   DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, userId])
+  @@index([householdId])
+}
+
+model FamilyProfile {
+  id             String    @id @default(cuid())
+  householdId    String
+  profileType    String // PERSON | PET
+  name           String
+  avatarMediaId  String?
+  birthday       DateTime?
+  joinedDate     DateTime?
+  species        String?
+  breed          String?
+  gender         String?
+  description    String?
+  visibility     String    @default("HOUSEHOLD")
+  linkedUserId   String?
+  isDemo         Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  linkedUser User?         @relation("ProfileUser", fields: [linkedUserId], references: [id], onDelete: SetNull)
+  entries   EntryProfile[]
+
+  @@index([householdId, profileType])
+}
+
+model Entry {
+  id             String    @id @default(cuid())
+  householdId    String
+  createdBy      String
+  entryType      String // MOMENT | STORY | EVENT_RECAP | GENERAL
+  title          String?
+  body           String?
+  occurredAt     DateTime
+  coverMediaId   String?
+  visibility     String    @default("HOUSEHOLD")
+  status         String    @default("PUBLISHED") // DRAFT | PUBLISHED | ARCHIVED | DELETED
+  isDemo         Boolean   @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  creator   User           @relation("EntryCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  media     EntryMedia[]
+  tags      EntryTag[]
+  profiles  EntryProfile[]
+
+  @@index([householdId, status, occurredAt])
+  @@index([householdId, entryType])
+}
+
+model Media {
+  id               String    @id @default(cuid())
+  householdId      String
+  uploadedBy       String
+  mediaType        String // IMAGE | VIDEO | DOCUMENT
+  originalFilename String
+  mimeType         String
+  fileSize         Int
+  storageKey       String
+  thumbnailKey     String?
+  width            Int?
+  height           Int?
+  durationSeconds  Float?
+  takenAt          DateTime?
+  caption          String?
+  favorite         Boolean   @default(false)
+  visibility       String    @default("HOUSEHOLD")
+  status           String    @default("ACTIVE") // ACTIVE | DELETED
+  isDemo           Boolean   @default(false)
+  checksum         String?
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  household  Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  uploader   User         @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+  entryLinks EntryMedia[]
+  albumLinks AlbumMedia[]
+  tags       MediaTag[]
+
+  @@index([householdId, status, takenAt])
+  @@index([householdId, status, createdAt])
+}
+
+model EntryMedia {
+  entryId   String
+  mediaId   String
+  sortOrder Int     @default(0)
+  caption   String?
+
+  entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([entryId, mediaId])
+  @@index([entryId, sortOrder])
+  @@index([mediaId])
+}
+
+model Album {
+  id           String   @id @default(cuid())
+  householdId  String
+  name         String
+  description  String?
+  coverMediaId String?
+  createdBy    String
+  isDemo       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  household Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  creator   User         @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  media     AlbumMedia[]
+
+  @@index([householdId])
+}
+
+model AlbumMedia {
+  albumId   String
+  mediaId   String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([albumId, mediaId])
+  @@index([albumId, sortOrder])
+  @@index([mediaId])
+}
+
+model Tag {
+  id          String   @id @default(cuid())
+  householdId String
+  name        String
+  color       String?
+  isDemo      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  household Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  entries   EntryTag[]
+  media     MediaTag[]
+
+  @@unique([householdId, name])
+}
+
+model EntryTag {
+  entryId String
+  tagId   String
+
+  entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  tag   Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([entryId, tagId])
+  @@index([tagId])
+}
+
+model MediaTag {
+  mediaId String
+  tagId   String
+
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  tag   Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([mediaId, tagId])
+  @@index([tagId])
+}
+
+model EntryProfile {
+  entryId          String
+  profileId        String
+  relationshipType String @default("PARTICIPANT")
+
+  entry   Entry         @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  profile FamilyProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([entryId, profileId])
+  @@index([profileId])
+}
+
+model CalendarEvent {
+  id                 String    @id @default(cuid())
+  householdId        String
+  createdBy          String
+  title              String
+  description        String?
+  location           String?
+  startsAt           DateTime
+  endsAt             DateTime?
+  isAllDay           Boolean   @default(false)
+  timezone           String
+  recurrenceType     String    @default("NONE") // NONE | DAILY | WEEKLY | MONTHLY | YEARLY
+  recurrenceInterval Int       @default(1)
+  recurrenceUntil    DateTime?
+  visibility         String    @default("HOUSEHOLD")
+  status             String    @default("ACTIVE") // ACTIVE | CANCELLED
+  relatedProfileIds  String? // JSON string[] of FamilyProfile ids
+  isDemo             Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  creator   User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([householdId, startsAt])
+}
+
+model Task {
+  id                 String    @id @default(cuid())
+  householdId        String
+  createdBy          String
+  assigneeUserId     String?
+  title              String
+  description        String?
+  dueAt              DateTime?
+  priority           String    @default("NORMAL") // NORMAL | IMPORTANT
+  status             String    @default("TODO") // TODO | DONE | CANCELLED
+  recurrenceType     String    @default("NONE")
+  recurrenceInterval Int       @default(1)
+  recurrenceUntil    DateTime?
+  visibility         String    @default("HOUSEHOLD")
+  completedAt        DateTime?
+  relatedProfileIds  String? // JSON string[] of FamilyProfile ids
+  isDemo             Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  household   Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  creator     User             @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  assignee    User?            @relation("TaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  completions TaskCompletion[]
+
+  @@index([householdId, status, dueAt])
+}
+
+model TaskCompletion {
+  id             String   @id @default(cuid())
+  taskId         String
+  completedBy    String
+  occurrenceDueAt DateTime?
+  completedAt    DateTime @default(now())
+  note           String?
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [completedBy], references: [id], onDelete: Cascade)
+
+  @@index([taskId, completedAt])
+}
+
+model ReminderRule {
+  id                String   @id @default(cuid())
+  householdId       String
+  targetType        String // CALENDAR_EVENT | TASK
+  targetId          String
+  offsets           String // JSON number[] minutes before
+  recipientUserIds  String // JSON string[] snapshot
+  enabled           Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([targetType, targetId])
+  @@index([householdId])
+}
+
+model Notification {
+  id                String    @id @default(cuid())
+  householdId       String
+  reminderRuleId    String?
+  targetType        String
+  targetId          String
+  targetTitle       String
+  targetUrl         String?
+  recipientUserId   String?
+  recipientEmail    String
+  channel           String    @default("EMAIL")
+  scheduledAt       DateTime
+  sentAt            DateTime?
+  status            String    @default("PENDING") // PENDING | SENDING | SENT | FAILED | CANCELLED
+  attemptCount      Int       @default(0)
+  lastError         String?
+  nextAttemptAt     DateTime?
+  idempotencyKey    String    @unique
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledAt])
+  @@index([householdId, createdAt])
+  @@index([targetType, targetId])
+}
+
+model AppSetting {
+  key         String   @id
+  value       String
+  householdId String?
+  updatedAt   DateTime @updatedAt
+
+  household Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+}
