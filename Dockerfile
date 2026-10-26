@@ -2,17 +2,18 @@ FROM node:22-bookworm-slim
 
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
+# 不要在这里之前设 NODE_ENV=production：npm 会因此跳过 devDependencies，
+# 而构建和运行时都需要它们（@tailwindcss/postcss、prisma CLI、tsx）。
 RUN npm ci
 
 COPY . .
-RUN npx prisma generate && npx next build
+RUN npm run build
 
 RUN mkdir -p data storage backups
 
