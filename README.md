@@ -79,6 +79,7 @@ npm run worker:prod  # 另一个常驻进程，发送邮件提醒
 | --- | --- |
 | `DATABASE_URL` | SQLite 路径，相对 `prisma/schema.prisma`，默认 `file:../data/homehi.db` |
 | `AUTH_SECRET` | 会话签名密钥，**至少 32 位随机字符**；更换会让所有人重新登录 |
+| `COOKIE_SECURE` | 可选。会话 Cookie 的 Secure 标记，留空自动判断（仅 `x-forwarded-proto: https` 时启用）。局域网 HTTP 访问时不要设为 `true`，否则会登录后立刻退出 |
 | `NEXT_PUBLIC_APP_URL` | 对外访问地址，用于邮件里的链接，不要以 `/` 结尾 |
 | `DEFAULT_TIMEZONE` | 初始化时的默认时区，IANA 名称，如 `Asia/Shanghai` |
 | `STORAGE_DIR` | 本地存储时照片/视频的目录，默认 `./storage` |

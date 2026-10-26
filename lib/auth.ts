@@ -1,11 +1,12 @@
 import "server-only";
 
 import { cache } from "react";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
 import { compare, hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { resolveSecureCookie } from "@/lib/session-cookie";
 
 export const SESSION_COOKIE = "homehi_session";
 const SESSION_DAYS = 30;
@@ -32,6 +33,14 @@ export async function verifyPassword(password: string, passwordHash: string): Pr
   return compare(password, passwordHash);
 }
 
+async function shouldUseSecureCookie(): Promise<boolean> {
+  const headerStore = await headers();
+  return resolveSecureCookie({
+    override: process.env.COOKIE_SECURE,
+    forwardedProto: headerStore.get("x-forwarded-proto"),
+  });
+}
+
 export async function createSession(payload: SessionPayload): Promise<void> {
   const token = await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
@@ -39,11 +48,12 @@ export async function createSession(payload: SessionPayload): Promise<void> {
     .setExpirationTime(`${SESSION_DAYS}d`)
     .sign(secretKey());
 
+  const secure = await shouldUseSecureCookie();
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure,
     path: "/",
     maxAge: SESSION_DAYS * 24 * 60 * 60,
   });
