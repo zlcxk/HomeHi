@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 import sharp from "sharp";
 import { prisma } from "@/lib/db";
 import { DEMO_SETTING_KEY } from "@/lib/constants";
-import { makeStorageKey, makeThumbKey, removeStoredFile, saveBuffer } from "@/lib/storage";
+import { getStorageDriver, makeStorageKey, makeThumbKey, removeStoredFile } from "@/lib/storage";
 import { syncReminderNotifications } from "@/lib/reminders";
 
 type DemoPalette = {
@@ -63,8 +63,9 @@ async function createDemoImage(index: number, caption: string, takenAt: Date, co
 
   const storageKey = makeStorageKey("jpg");
   const thumbnailKey = makeThumbKey();
-  await saveBuffer(storageKey, jpeg);
-  await saveBuffer(thumbnailKey, thumb);
+  const driver = await getStorageDriver();
+  await driver.put(storageKey, jpeg, "image/jpeg");
+  await driver.put(thumbnailKey, thumb, "image/webp");
 
   return prisma.media.create({
     data: {
@@ -75,6 +76,7 @@ async function createDemoImage(index: number, caption: string, takenAt: Date, co
       mimeType: "image/jpeg",
       fileSize: jpeg.byteLength,
       storageKey,
+      storageDriver: driver.kind,
       thumbnailKey,
       width: 1200,
       height: 900,
@@ -387,6 +389,9 @@ export async function clearDemoData(householdId: string): Promise<void> {
   ]);
 
   await Promise.all(
-    media.flatMap((item) => [removeStoredFile(item.storageKey), removeStoredFile(item.thumbnailKey)]),
+    media.flatMap((item) => [
+      removeStoredFile(item.storageKey, item.storageDriver),
+      removeStoredFile(item.thumbnailKey, item.storageDriver),
+    ]),
   );
 }

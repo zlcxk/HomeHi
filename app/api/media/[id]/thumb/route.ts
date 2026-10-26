@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getApiContext } from "@/lib/auth";
 import { canViewMedia } from "@/lib/access";
 import { prisma } from "@/lib/db";
-import { readStoredStream, statStoredFile } from "@/lib/storage";
+import { getStorageDriver } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,11 +26,13 @@ export async function GET(
   if (!media.thumbnailKey) {
     return NextResponse.json({ error: "没有缩略图" }, { status: 404 });
   }
-  const stat = await statStoredFile(media.thumbnailKey);
+  const driver = await getStorageDriver(media.storageDriver);
+  const stat = await driver.stat(media.thumbnailKey);
   if (!stat) return NextResponse.json({ error: "文件不存在" }, { status: 404 });
 
-  const stream = readStoredStream(media.thumbnailKey);
-  return new Response(Readable.toWeb(stream) as unknown as ReadableStream, {
+  const object = await driver.get(media.thumbnailKey);
+  if (!object) return NextResponse.json({ error: "文件不存在" }, { status: 404 });
+  return new Response(Readable.toWeb(object.stream) as unknown as ReadableStream, {
     status: 200,
     headers: {
       "Content-Type": "image/webp",

@@ -4,6 +4,7 @@ import { cp, mkdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { DateTime } from "luxon";
 import { prisma } from "../lib/db";
+import { getStorageConfig, storageRoot } from "../lib/storage";
 
 function databasePath(): string {
   const raw = (process.env.DATABASE_URL || "file:../data/homehi.db").replace(/^file:/, "");
@@ -14,7 +15,9 @@ async function main() {
   const stamp = DateTime.now().toFormat("yyyyLLdd-HHmmss");
   const destination = path.resolve("backups", `homehi-${stamp}`);
   const dbFile = databasePath();
-  const storage = path.resolve(process.env.STORAGE_DIR || "./storage");
+  const storage = storageRoot();
+  const storageConfig = await getStorageConfig().catch(() => null);
+  const usingOss = storageConfig?.driver === "OSS";
 
   try {
     await stat(dbFile);
@@ -58,8 +61,12 @@ async function main() {
       "恢复步骤：",
       "1. 停止 web 和 worker 进程",
       "2. 把 homehi.db（以及 homehi.db-wal / homehi.db-shm，如有）放回 data/",
-      "3. 把 storage/ 放回项目根目录",
+      "3. 把 storage/ 放回项目根目录（如果使用了本地存储）",
       "4. 重新启动 npm run start 与 npm run worker:prod",
+      "",
+      usingOss
+        ? "注意：当前媒体存储在阿里云 OSS，本备份只包含数据库。请使用 OSS 的版本控制或跨区域复制来保护对象数据。"
+        : "照片和视频在 storage/ 目录中，已一并备份。",
       "",
       "请把这个文件夹放在与服务器不同的磁盘上。",
       "",

@@ -8,6 +8,7 @@ const items = [
   { href: "/settings/household", label: "家庭" },
   { href: "/settings/notifications", label: "通知" },
   { href: "/settings/email", label: "邮件" },
+  { href: "/settings/storage", label: "存储" },
   { href: "/settings/data", label: "数据" },
   { href: "/settings/appearance", label: "外观" },
 ];

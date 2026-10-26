@@ -9,7 +9,7 @@ import {
   MEDIA_VIDEO_TYPES,
   MIME_EXTENSION,
 } from "@/lib/constants";
-import { makeStorageKey, makeThumbKey, saveBuffer } from "@/lib/storage";
+import { getStorageDriver, makeStorageKey, makeThumbKey, type StorageDriver } from "@/lib/storage";
 import type { AppContext } from "@/lib/auth";
 
 const IMAGE_TYPES = new Set<string>(MEDIA_IMAGE_TYPES);
@@ -29,14 +29,18 @@ export function sanitizeFilename(name: string): string {
   return base.replace(/[\u0000-\u001f<>:"|?*]/g, "_").slice(0, 180) || "file";
 }
 
-async function makeThumbnail(buffer: Buffer, key: string): Promise<string | null> {
+async function makeThumbnail(
+  buffer: Buffer,
+  key: string,
+  driver: StorageDriver,
+): Promise<string | null> {
   try {
     const thumb = await sharp(buffer, { failOn: "none" })
       .rotate()
       .resize({ width: 900, height: 900, fit: "inside", withoutEnlargement: true })
       .webp({ quality: 78 })
       .toBuffer();
-    await saveBuffer(key, thumb);
+    await driver.put(key, thumb, "image/webp");
     return key;
   } catch {
     return null;
@@ -114,7 +118,9 @@ export async function processMediaUpload(
   const checksum = createHash("sha256").update(buffer).digest("hex");
   const extension = MIME_EXTENSION[mime] || "bin";
   const storageKey = makeStorageKey(extension);
-  await saveBuffer(storageKey, buffer);
+  // 新文件写入当前配置的活动存储后端；历史文件仍按各自记录的后端读取。
+  const driver = await getStorageDriver();
+  await driver.put(storageKey, buffer, mime);
 
   const isImage = IMAGE_TYPES.has(mime);
   let thumbnailKey: string | null = null;
@@ -128,7 +134,7 @@ export async function processMediaUpload(
     width = meta.width;
     height = meta.height;
     takenAt = meta.takenAt;
-    thumbnailKey = await makeThumbnail(buffer, makeThumbKey());
+    thumbnailKey = await makeThumbnail(buffer, makeThumbKey(), driver);
   } else {
     const clientWidth = Number(fields.clientWidth);
     const clientHeight = Number(fields.clientHeight);
@@ -141,7 +147,7 @@ export async function processMediaUpload(
     if (poster) {
       const posterBuffer = Buffer.from(await poster.arrayBuffer());
       if (posterBuffer.length <= 8 * 1024 * 1024) {
-        thumbnailKey = await makeThumbnail(posterBuffer, makeThumbKey());
+        thumbnailKey = await makeThumbnail(posterBuffer, makeThumbKey(), driver);
         if (!width || !height) {
           try {
             const meta = await sharp(posterBuffer, { failOn: "none" }).metadata();
@@ -168,6 +174,7 @@ export async function processMediaUpload(
       mimeType: mime,
       fileSize: file.size,
       storageKey,
+      storageDriver: driver.kind,
       thumbnailKey,
       width,
       height,

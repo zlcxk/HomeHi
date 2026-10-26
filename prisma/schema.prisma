@@ -131,6 +131,7 @@ model Media {
   mimeType         String
   fileSize         Int
   storageKey       String
+  storageDriver    String    @default("LOCAL") // LOCAL | OSS，记录文件写入时的存储后端
   thumbnailKey     String?
   width            Int?
   height           Int?

@@ -81,7 +81,9 @@ npm run worker:prod  # 另一个常驻进程，发送邮件提醒
 | `AUTH_SECRET` | 会话签名密钥，**至少 32 位随机字符**；更换会让所有人重新登录 |
 | `NEXT_PUBLIC_APP_URL` | 对外访问地址，用于邮件里的链接，不要以 `/` 结尾 |
 | `DEFAULT_TIMEZONE` | 初始化时的默认时区，IANA 名称，如 `Asia/Shanghai` |
-| `STORAGE_DIR` | 照片/视频存储目录，默认 `./storage` |
+| `STORAGE_DIR` | 本地存储时照片/视频的目录，默认 `./storage` |
+| `STORAGE_DRIVER` | 默认存储后端：`local` 或 `oss`；界面「设置 → 存储」保存的配置优先 |
+| `OSS_*` | 可选。`OSS_REGION`、`OSS_BUCKET`、`OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET`、`OSS_ENDPOINT`、`OSS_PREFIX` |
 | `MAX_UPLOAD_MB` | 单个文件上限，默认 100 |
 | `SMTP_*` | 邮件提醒所需的 SMTP 配置；不配置时应用会明确显示「未配置」 |
 | `WORKER_POLL_SECONDS` | worker 轮询间隔，默认 30 秒 |
@@ -99,6 +101,7 @@ docker compose up -d --build
 
 Compose 会启动 `web` 和 `worker` 两个容器，并把 `./data`、`./storage` 挂载为持久卷。
 SQLite 与本地文件存储都依赖这两个目录，**升级或迁移时请一起带走**。
+如果媒体改用阿里云 OSS，`./storage` 只保留历史本地文件，数据库仍必须持久化。
 
 ### 反向代理
 
@@ -127,6 +130,7 @@ npm run backup
 ```
 
 会在 `backups/homehi-YYYYMMDD-HHmmss/` 下用 `VACUUM INTO` 生成 SQLite 一致性快照，并复制 `storage/`，附恢复说明。网页运行中也可以安全备份。
+使用 OSS 时，媒体对象不在 `storage/`，备份只包含数据库；请另外启用 OSS 的版本控制或跨区域复制。
 请把备份放到与服务器不同的磁盘或另一台机器。建议每天定时执行，并偶尔实际恢复一次。
 
 也可以在「设置 → 数据」导出 ZIP。导出是完整的人类可读 JSON + 原始媒体文件，不依赖 HomeHi 才能打开。
@@ -189,7 +193,7 @@ docs/           PRD 评审与后续计划
 - 没有 AI 自动写文案/选照片；宁可空白，也不假装懂你。
 - 没有公开分享链接、点赞、评论、关注——这不是社交产品。
 - 没有开放注册、忘记密码邮件、两步验证；家庭规模下由管理员当面创建账号。
-- 媒体存本地磁盘，没有对象存储适配层（接口已隔离在 `lib/storage.ts`，方便以后替换）。
+- 媒体支持本地磁盘和阿里云 OSS 两种后端，可在「设置 → 存储」里切换。切换只影响之后的新文件，历史文件按记录中的后端读取；已有文件不会自动搬迁。
 - PWA 离线只提供离线提示页，不缓存需要登录的页面，避免在共用设备上留下隐私数据。
 - SQLite 适合家庭规模；大量并发写入或多实例部署请先评估迁移到 Postgres。
 

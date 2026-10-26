@@ -151,6 +151,16 @@ export const householdSchema = z.object({
   timezone: z.string().min(1, "请选择时区"),
 });
 
+export const storageSchema = z.object({
+  driver: z.enum(["LOCAL", "OSS"]),
+  ossRegion: z.string().trim().max(120).optional().default(""),
+  ossBucket: z.string().trim().max(120).optional().default(""),
+  ossAccessKeyId: z.string().trim().max(200).optional().default(""),
+  ossAccessKeySecret: z.string().trim().max(400).optional().default(""),
+  ossEndpoint: z.string().trim().max(200).optional().default(""),
+  ossPrefix: z.string().trim().max(200).optional().default(""),
+});
+
 export type ActionState = {
   error?: string;
   success?: string;

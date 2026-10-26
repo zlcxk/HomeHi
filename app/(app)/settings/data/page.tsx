@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Database, Download, HardDrive, Sparkles, Trash2 } from "lucide-react";
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { storageUsage } from "@/lib/storage";
+import { STORAGE_KIND_LABEL, getStorageConfig, storageUsage } from "@/lib/storage";
 import { formatBytes } from "@/lib/format";
 import { DEMO_SETTING_KEY, LAST_EXPORT_SETTING_KEY } from "@/lib/constants";
 import { formatDateTime } from "@/lib/dates";
@@ -14,8 +14,9 @@ export default async function DataSettingsPage() {
   const context = await requireContext();
   const isOwner = context.role === "OWNER";
 
-  const [usage, demoSetting, exportSetting, demoCounts, trashCount] = await Promise.all([
-    storageUsage(),
+  const [config, usage, demoSetting, exportSetting, demoCounts, trashCount] = await Promise.all([
+    getStorageConfig(),
+    storageUsage().catch(() => null),
     prisma.appSetting.findUnique({ where: { key: DEMO_SETTING_KEY } }),
     prisma.appSetting.findUnique({ where: { key: LAST_EXPORT_SETTING_KEY } }),
     prisma.entry.count({ where: { householdId: context.household.id, isDemo: true } }),
@@ -92,11 +93,22 @@ export default async function DataSettingsPage() {
           <HardDrive size={15} className="text-muted" /> 存储占用
         </h2>
         <div className="mt-3 flex items-baseline gap-2">
-          <span className="display-number text-[34px]">{formatBytes(usage.bytes)}</span>
-          <span className="text-[11px] text-faint">{usage.files} 个文件</span>
+          <span className="display-number text-[34px]">
+            {usage ? formatBytes(usage.bytes) : "—"}
+          </span>
+          <span className="text-[11px] text-faint">
+            {usage ? `${usage.files} 个文件` : "暂时无法统计"}
+          </span>
         </div>
         <p className="mt-2 text-[10.5px] leading-relaxed text-faint">
-          照片和视频保存在服务器的 <code className="rounded bg-raised px-1 py-0.5">storage/</code> 目录。备份时请同时备份这个目录和数据库文件。
+          当前后端：{STORAGE_KIND_LABEL[config.driver]}。
+          {config.driver === "LOCAL"
+            ? "照片和视频保存在服务器的 storage/ 目录。备份时请同时备份这个目录和数据库文件。"
+            : "照片和视频保存在阿里云 OSS。备份时只需要备份数据库，对象数据请使用 OSS 的版本控制或跨区域复制。"}
+          {" "}
+          <Link href="/settings/storage" className="underline underline-offset-2 hover:text-ink">
+            修改存储设置
+          </Link>
         </p>
       </section>
 
@@ -105,10 +117,12 @@ export default async function DataSettingsPage() {
           <Database size={15} className="text-muted" /> 备份
         </h2>
         <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
-          在服务器上运行 <code className="rounded bg-raised px-1 py-0.5 text-[10.5px]">npm run backup</code>，会把 SQLite 数据库和整个 storage 目录复制到带时间戳的备份文件夹。建议定期把备份复制到另一块硬盘或私有云。
+          在服务器上运行 <code className="rounded bg-raised px-1 py-0.5 text-[10.5px]">npm run backup</code>，
+          会把 SQLite 数据库和本地 storage 目录复制到带时间戳的备份文件夹。使用 OSS 时，媒体文件不在本地，
+          备份只包含数据库。
         </p>
         <p className="mt-2 text-[10.5px] leading-relaxed text-faint">
-          恢复时停止应用，把备份中的数据库和 storage 覆盖回原位，再启动即可。
+          恢复时停止应用，把备份中的数据库（以及本地存储时的 storage）覆盖回原位，再启动即可。
         </p>
       </section>
 

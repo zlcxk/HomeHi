@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@prisma/client", "sharp", "nodemailer", "archiver"],
+  // ali-oss/urllib 带有可选的 native/代理依赖，交给 Node 运行时按需加载。
+  serverExternalPackages: ["@prisma/client", "sharp", "nodemailer", "archiver", "ali-oss"],
   async headers() {
     return [
       {

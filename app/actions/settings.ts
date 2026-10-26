@@ -6,12 +6,20 @@ import { getContext, hashPassword } from "@/lib/auth";
 import { sendTestEmail, smtpStatus } from "@/lib/mailer";
 import { isValidTimezone } from "@/lib/timezones";
 import {
+  getStorageConfig,
+  normalizeOssConfig,
+  saveStorageConfig,
+  testStorageConfig,
+  type StorageConfig,
+} from "@/lib/storage";
+import {
   firstError,
   formBoolean,
   formString,
   householdSchema,
   memberSchema,
   profileSettingsSchema,
+  storageSchema,
   type ActionState,
 } from "@/lib/validation";
 
@@ -96,6 +104,78 @@ export async function updateHouseholdAction(
   revalidatePath("/", "layout");
   revalidatePath("/settings/household");
   return { success: "家庭设置已更新" };
+}
+
+type StorageFormResult = { config: StorageConfig } | { error: string };
+
+async function readStorageForm(formData: FormData): Promise<StorageFormResult> {
+  const parsed = storageSchema.safeParse({
+    driver: formString(formData, "driver") || "LOCAL",
+    ossRegion: formString(formData, "ossRegion"),
+    ossBucket: formString(formData, "ossBucket"),
+    ossAccessKeyId: formString(formData, "ossAccessKeyId"),
+    ossAccessKeySecret: formString(formData, "ossAccessKeySecret"),
+    ossEndpoint: formString(formData, "ossEndpoint"),
+    ossPrefix: formString(formData, "ossPrefix"),
+  });
+  if (!parsed.success) return { error: firstError(parsed.error) };
+
+  const data = parsed.data;
+  const existing = await getStorageConfig();
+  const hasOssInput = Boolean(
+    data.ossRegion || data.ossBucket || data.ossAccessKeyId || data.ossAccessKeySecret,
+  );
+
+  // 用已保存的值补全留空字段；Secret 留空表示“保持不变”。
+  const oss = hasOssInput
+    ? normalizeOssConfig({
+        region: data.ossRegion || existing.oss?.region,
+        bucket: data.ossBucket || existing.oss?.bucket,
+        accessKeyId: data.ossAccessKeyId || existing.oss?.accessKeyId,
+        accessKeySecret: data.ossAccessKeySecret || existing.oss?.accessKeySecret,
+        endpoint: data.ossEndpoint,
+        prefix: data.ossPrefix,
+      })
+    : existing.oss;
+
+  if (data.driver === "OSS" && !oss) {
+    return { error: "使用阿里云 OSS 需要填写 Region、Bucket、AccessKey ID 和 AccessKey Secret" };
+  }
+
+  return { config: { driver: data.driver, oss } };
+}
+
+export async function updateStorageAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const context = await getContext();
+  if (!context) return { error: "登录已失效，请重新登录" };
+  if (context.role !== "OWNER") return { error: "只有家庭管理员可以修改存储设置" };
+
+  const result = await readStorageForm(formData);
+  if ("error" in result) return { error: result.error };
+
+  if (formString(formData, "intent") === "test") {
+    try {
+      await testStorageConfig(result.config);
+      return { success: "连接正常：测试文件已写入并删除。" };
+    } catch (error) {
+      return {
+        error: `连接失败：${error instanceof Error ? error.message : "未知错误"}`,
+      };
+    }
+  }
+
+  await saveStorageConfig(result.config);
+  revalidatePath("/settings/storage");
+  revalidatePath("/settings/data");
+  return {
+    success:
+      result.config.driver === "OSS"
+        ? "已切换到阿里云 OSS。之后上传的新文件会写入 OSS，已有文件仍可正常访问。"
+        : "已切换到本地磁盘。之后上传的新文件会写入 storage/ 目录，已有文件仍可正常访问。",
+  };
 }
 
 export async function addMemberAction(

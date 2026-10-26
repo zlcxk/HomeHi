@@ -8,6 +8,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
+# package.json 的 postinstall 会执行 `prisma generate`，因此 schema 必须先就位。
+COPY prisma ./prisma
 # 不要在这里之前设 NODE_ENV=production：npm 会因此跳过 devDependencies，
 # 而构建和运行时都需要它们（@tailwindcss/postcss、prisma CLI、tsx）。
 RUN npm ci

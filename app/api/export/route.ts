@@ -2,12 +2,28 @@ import { Readable } from "node:stream";
 import { ZipArchive } from "archiver";
 import { getApiContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { ensureSafeKey } from "@/lib/storage";
+import { getStorageDriver } from "@/lib/storage";
 import { LAST_EXPORT_SETTING_KEY } from "@/lib/constants";
 import { DateTime } from "luxon";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** 文件可能已被删除或存储后端已变更，单个文件失败不应该中断整次导出。 */
+async function appendStoredFile(
+  archive: ZipArchive,
+  key: string,
+  kind: string,
+  name: string,
+): Promise<void> {
+  try {
+    const driver = await getStorageDriver(kind);
+    const object = await driver.get(key);
+    if (object) archive.append(object.stream, { name });
+  } catch {
+    // 跳过读取失败的文件
+  }
+}
 
 export async function GET() {
   const context = await getApiContext();
@@ -118,13 +134,17 @@ export async function GET() {
   );
   archive.append(JSON.stringify(data, null, 2), { name: "homehi-data.json" });
 
+  // 逐个读取：本地和 OSS 都通过同一套驱动接口，历史文件按记录里的后端读取。
   for (const item of media) {
     const filename = `${item.id}-${item.originalFilename.replace(/[\\/:*?"<>|]/g, "_")}`;
-    archive.file(ensureSafeKey(item.storageKey), { name: `media/${filename}` });
+    await appendStoredFile(archive, item.storageKey, item.storageDriver, `media/${filename}`);
     if (item.thumbnailKey) {
-      archive.file(ensureSafeKey(item.thumbnailKey), {
-        name: `media/thumbs/${item.id}.webp`,
-      });
+      await appendStoredFile(
+        archive,
+        item.thumbnailKey,
+        item.storageDriver,
+        `media/thumbs/${item.id}.webp`,
+      );
     }
   }
 

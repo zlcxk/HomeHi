@@ -5,6 +5,7 @@ import { LoginForm } from "@/components/auth/LoginForm";
 import { getContext, hasHousehold } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "登录" };
+export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
   if (!(await hasHousehold())) redirect("/setup");

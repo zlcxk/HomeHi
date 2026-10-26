@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getApiContext } from "@/lib/auth";
 import { canViewMedia } from "@/lib/access";
 import { prisma } from "@/lib/db";
-import { readStoredStream, statStoredFile } from "@/lib/storage";
+import { getStorageDriver } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +24,8 @@ export async function GET(
     return NextResponse.json({ error: "文件不存在" }, { status: 404 });
   }
 
-  const stat = await statStoredFile(media.storageKey);
+  const driver = await getStorageDriver(media.storageDriver);
+  const stat = await driver.stat(media.storageKey);
   if (!stat) return NextResponse.json({ error: "文件不存在" }, { status: 404 });
 
   const url = new URL(request.url);
@@ -49,8 +50,9 @@ export async function GET(
       const end = match[2] ? Number(match[2]) : stat.size - 1;
       if (Number.isFinite(start) && Number.isFinite(end) && start <= end && start < stat.size) {
         const safeEnd = Math.min(end, stat.size - 1);
-        const stream = readStoredStream(media.storageKey, { start, end: safeEnd });
-        return new Response(Readable.toWeb(stream) as unknown as ReadableStream, {
+        const object = await driver.get(media.storageKey, { start, end: safeEnd });
+        if (!object) return NextResponse.json({ error: "文件不存在" }, { status: 404 });
+        return new Response(Readable.toWeb(object.stream) as unknown as ReadableStream, {
           status: 206,
           headers: {
             ...baseHeaders,
@@ -66,8 +68,9 @@ export async function GET(
     }
   }
 
-  const stream = readStoredStream(media.storageKey);
-  return new Response(Readable.toWeb(stream) as unknown as ReadableStream, {
+  const object = await driver.get(media.storageKey);
+  if (!object) return NextResponse.json({ error: "文件不存在" }, { status: 404 });
+  return new Response(Readable.toWeb(object.stream) as unknown as ReadableStream, {
     status: 200,
     headers: { ...baseHeaders, "Content-Length": String(stat.size) },
   });

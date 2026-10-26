@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getApiContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { removeStoredFile } from "@/lib/storage";
+import { getStorageDriver, removeStoredFile } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,8 +29,9 @@ export async function DELETE(
   const referenced = media.entryLinks.length > 0 || media.albumLinks.length > 0;
   if (!referenced) {
     await prisma.media.delete({ where: { id } });
-    await removeStoredFile(media.storageKey);
-    await removeStoredFile(media.thumbnailKey);
+    const driver = await getStorageDriver(media.storageDriver);
+    await removeStoredFile(media.storageKey, driver.kind);
+    await removeStoredFile(media.thumbnailKey, driver.kind);
     return NextResponse.json({ ok: true, purged: true });
   }
 
