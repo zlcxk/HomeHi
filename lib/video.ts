@@ -127,8 +127,15 @@ async function processVideo(media: NonNullable<Awaited<ReturnType<typeof claimNe
     // 浏览器没能生成封面时（部分 iOS 版本会失败），由服务器补一张。
     if (!media.thumbnailKey) {
       const posterPath = path.join(tempDir, "poster.jpg");
+      // 和前端截帧一致：跳过开头和结尾，在中间 15%–85% 随机取一帧作为封面。
       const at = media.durationSeconds
-        ? Math.max(0.5, Math.min(media.durationSeconds * 0.15, 30))
+        ? Math.max(
+            0.5,
+            Math.min(
+              media.durationSeconds * (0.15 + Math.random() * 0.7),
+              media.durationSeconds - 0.1,
+            ),
+          )
         : 1;
       try {
         await runFfmpeg(

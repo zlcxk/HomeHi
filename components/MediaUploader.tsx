@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { durationLabel } from "@/lib/format";
+import { AvatarCropDialog } from "@/components/AvatarCropDialog";
 
 export type MediaItem = {
   id: string;
@@ -218,6 +219,7 @@ export function MediaUploader({
   );
   const [reorder, setReorder] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [crop, setCrop] = useState<{ file: File; key: string } | null>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const objectUrls = useRef<Set<string>>(new Set());
@@ -235,6 +237,7 @@ export function MediaUploader({
   }, [uploading, onBusyChange]);
 
   const doneItems = items.filter((item) => item.status === "done" && item.media);
+  const coverIsVideo = items[0]?.media?.mediaType === "VIDEO";
   const hiddenValue = single
     ? doneItems[0]?.media?.id || ""
     : JSON.stringify(doneItems.map((item) => item.media!.id));
@@ -287,6 +290,18 @@ export function MediaUploader({
 
   function addFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
+
+    // 头像先进入方形裁剪，确认后只上传裁剪结果，不会把原图传上去。
+    if (avatar) {
+      const file = Array.from(fileList).find((entry) =>
+        uploadMime(entry).startsWith("image/"),
+      );
+      if (file) setCrop({ file, key: crypto.randomUUID() });
+      if (libraryRef.current) libraryRef.current.value = "";
+      if (cameraRef.current) cameraRef.current.value = "";
+      return;
+    }
+
     if (single) setItems([]);
     const remaining = single ? 1 : Math.max(0, max - items.length);
     const files = Array.from(fileList).slice(0, remaining);
@@ -314,6 +329,16 @@ export function MediaUploader({
     }
     if (libraryRef.current) libraryRef.current.value = "";
     if (cameraRef.current) cameraRef.current.value = "";
+  }
+
+  function confirmAvatarCrop(file: File) {
+    if (!crop) return;
+    const key = crop.key;
+    setCrop(null);
+    setItems([]);
+    const previewUrl = trackObjectUrl(URL.createObjectURL(file));
+    setItems([{ key, file, previewUrl, status: "uploading", progress: 0 }]);
+    void processFile(file, key);
   }
 
   async function removeItem(item: UploadItem) {
@@ -551,7 +576,11 @@ export function MediaUploader({
             }`}
           >
             <p className="text-[11px] text-faint">
-              {single ? "已选 1 张" : `${doneItems.length}/${max} · 第一张作为封面`}
+              {single
+                ? "已选 1 张"
+                : `${doneItems.length}/${max} · 第一张作为封面${
+                    coverIsVideo ? "（视频自动截取随机画面）" : ""
+                  }`}
             </p>
             <div className="flex items-center gap-2">
               {single ? (
@@ -596,6 +625,15 @@ export function MediaUploader({
           </div>
         </div>
       )}
+
+      {crop ? (
+        <AvatarCropDialog
+          key={crop.key}
+          file={crop.file}
+          onCancel={() => setCrop(null)}
+          onConfirm={confirmAvatarCrop}
+        />
+      ) : null}
     </div>
   );
 }
