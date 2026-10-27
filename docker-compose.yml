@@ -1,5 +1,5 @@
 # 所有 .env 中的变量都会通过 env_file 注入 web 和 worker，
-# 包括 AMAP_API_KEY、MEDIA_CRAWLER_URL 等；新增配置只需写进 .env，
+# 包括 AMAP_API_KEY、STORAGE_DRIVER 等；新增配置只需写进 .env，
 # 不需要在这里重复声明（这里只覆盖容器内必须不同的路径类变量）。
 services:
   web:

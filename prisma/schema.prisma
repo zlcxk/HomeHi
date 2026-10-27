@@ -36,8 +36,12 @@ model User {
   taskCompletions TaskCompletion[]
   linkedProfiles  FamilyProfile[]    @relation("ProfileUser")
   assets          Asset[]            @relation("AssetCreator")
-  topics          Topic[]
-  topicOpinions   TopicOpinion[]
+  topics           Topic[]
+  topicOpinions    TopicOpinion[]
+  topicNotes       TopicNote[]
+  topicLinks       TopicLink[]
+  topicAttachments TopicAttachment[]
+  topicDates       TopicDate[]
 }
 
 model Household {
@@ -135,44 +139,42 @@ model Asset {
 }
 
 model Topic {
-  id              String    @id @default(cuid())
-  householdId     String
-  createdBy       String
-  title           String
-  description     String?
-  keyword         String?
-  status          String    @default("OPEN") // OPEN | CLOSED
-  trendsFetchedAt DateTime?
-  closedAt        DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  householdId String
+  createdBy   String
+  title       String
+  description String?
+  status      String    @default("OPEN") // OPEN | CLOSED
+  decision    String?
+  outcome     String?
+  decidedAt   DateTime?
+  closedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  creator   User           @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-  contents  TopicContent[]
-  opinions  TopicOpinion[]
+  household   Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  creator     User              @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  notes       TopicNote[]
+  opinions    TopicOpinion[]
+  links       TopicLink[]
+  attachments TopicAttachment[]
+  dates       TopicDate[]
+  tasks       TopicTask[]
 
   @@index([householdId, status, createdAt])
 }
 
-model TopicContent {
-  id          String    @id @default(cuid())
-  topicId     String
-  title       String
-  url         String
-  platform    String?
-  author      String?
-  heat        String?
-  summary     String?
-  coverUrl    String?
-  publishedAt DateTime?
-  sortOrder   Int       @default(0)
-  fetchedAt   DateTime  @default(now())
+model TopicNote {
+  id        String   @id @default(cuid())
+  topicId   String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
 
   topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([topicId, url])
-  @@index([topicId, sortOrder])
+  @@index([topicId, createdAt])
 }
 
 model TopicOpinion {
@@ -187,6 +189,67 @@ model TopicOpinion {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([topicId, createdAt])
+}
+
+model TopicLink {
+  id        String   @id @default(cuid())
+  topicId   String
+  createdBy String
+  url       String
+  title     String
+  platform  String?
+  note      String?
+  createdAt DateTime @default(now())
+
+  topic   Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  creator User  @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@unique([topicId, url])
+  @@index([topicId, createdAt])
+}
+
+model TopicAttachment {
+  id               String   @id @default(cuid())
+  topicId          String
+  uploadedBy       String
+  originalFilename String
+  mimeType         String
+  fileSize         Int
+  storageKey       String
+  storageDriver    String   @default("LOCAL") // LOCAL | OSS
+  createdAt        DateTime @default(now())
+
+  topic    Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  uploader User  @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+
+  @@index([topicId, createdAt])
+}
+
+model TopicDate {
+  id        String   @id @default(cuid())
+  topicId   String
+  createdBy String
+  label     String
+  date      DateTime
+  note      String?
+  createdAt DateTime @default(now())
+
+  topic   Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  creator User  @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([topicId, date])
+}
+
+model TopicTask {
+  topicId   String
+  taskId    String
+  createdAt DateTime @default(now())
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([topicId, taskId])
+  @@index([taskId])
 }
 
 model Entry {
@@ -400,6 +463,7 @@ model Task {
   creator     User             @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   assignee    User?            @relation("TaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
   completions TaskCompletion[]
+  topicLinks  TopicTask[]
 
   @@index([householdId, status, dueAt])
 }

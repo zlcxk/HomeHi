@@ -137,13 +137,37 @@ export const assetSchema = z.object({
 export const topicSchema = z.object({
   title: z.string().trim().min(2, "议题至少写 2 个字").max(80, "议题标题过长"),
   description: z.string().max(2000, "说明过长").optional().default(""),
-  keyword: z.string().max(40, "关键词过长").optional().default(""),
+});
+
+export const topicNoteSchema = z.object({
+  topicId: z.string().min(1),
+  body: z.string().trim().min(1, "写点想法再保存").max(1000, "最多 1000 字"),
 });
 
 export const topicOpinionSchema = z.object({
   topicId: z.string().min(1),
   stance: z.enum(["AGREE", "NEUTRAL", "CONCERN"]),
   body: z.string().trim().min(1, "写一句你的想法").max(500, "最多 500 字"),
+});
+
+export const topicLinkSchema = z.object({
+  topicId: z.string().min(1),
+  text: z.string().trim().min(1, "请粘贴链接或分享文案").max(3000, "分享文案过长"),
+  title: z.string().trim().max(120, "标题过长").optional().default(""),
+  note: z.string().trim().max(500, "备注过长").optional().default(""),
+});
+
+export const topicDateSchema = z.object({
+  topicId: z.string().min(1),
+  label: z.string().trim().min(1, "写一个日期名称").max(40, "日期名称过长"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "请选择日期"),
+  note: z.string().trim().max(300, "备注过长").optional().default(""),
+});
+
+export const topicDecisionSchema = z.object({
+  topicId: z.string().min(1),
+  decision: z.string().trim().min(1, "写一句最终决定").max(500, "决定最多 500 字"),
+  outcome: z.string().trim().max(2000, "结果说明过长").optional().default(""),
 });
 
 export const albumSchema = z.object({

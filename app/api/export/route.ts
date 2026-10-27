@@ -25,6 +25,11 @@ async function appendStoredFile(
   }
 }
 
+function topicAttachmentPath(topicId: string, item: { id: string; originalFilename: string }) {
+  const safeName = item.originalFilename.replace(/[\\/:*?"<>|]/g, "_");
+  return `topics/${topicId}/${item.id}-${safeName}`;
+}
+
 export async function GET() {
   const context = await getApiContext();
   if (!context) return new Response("请先登录", { status: 401 });
@@ -80,8 +85,12 @@ export async function GET() {
     prisma.topic.findMany({
       where: { householdId },
       include: {
-        contents: { orderBy: { sortOrder: "asc" } },
+        notes: { orderBy: { createdAt: "asc" } },
         opinions: { orderBy: { createdAt: "asc" } },
+        links: { orderBy: { createdAt: "asc" } },
+        attachments: { orderBy: { createdAt: "asc" } },
+        dates: { orderBy: { date: "asc" } },
+        tasks: { orderBy: { createdAt: "asc" } },
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -137,12 +146,23 @@ export async function GET() {
     reminderRules: rules,
     notifications,
     settings,
-    topics,
+    topics: topics.map((topic) => ({
+      ...topic,
+      attachments: topic.attachments.map((item) => ({
+        id: item.id,
+        originalFilename: item.originalFilename,
+        mimeType: item.mimeType,
+        fileSize: item.fileSize,
+        uploadedBy: item.uploadedBy,
+        createdAt: item.createdAt,
+        file: topicAttachmentPath(topic.id, item),
+      })),
+    })),
   };
 
   const archive = new ZipArchive({ zlib: { level: 6 } });
   archive.append(
-    `HomeHi 数据导出\n\n导出时间：${new Date().toISOString()}\n家庭：${household?.name ?? ""}\n\nhomehi-data.json 包含完整结构化数据；media/ 目录是原始文件。\n照片仍受原隐私设置约束，请妥善保管这个压缩包。\n`,
+    `HomeHi 数据导出\n\n导出时间：${new Date().toISOString()}\n家庭：${household?.name ?? ""}\n\nhomehi-data.json 包含完整结构化数据；media/ 是照片和视频原始文件，topics/ 是议题附件。\n照片仍受原隐私设置约束，请妥善保管这个压缩包。\n`,
     { name: "README.txt" },
   );
   archive.append(JSON.stringify(data, null, 2), { name: "homehi-data.json" });
@@ -157,6 +177,17 @@ export async function GET() {
         item.thumbnailKey,
         item.storageDriver,
         `media/thumbs/${item.id}.webp`,
+      );
+    }
+  }
+
+  for (const topic of topics) {
+    for (const item of topic.attachments) {
+      await appendStoredFile(
+        archive,
+        item.storageKey,
+        item.storageDriver,
+        topicAttachmentPath(topic.id, item),
       );
     }
   }

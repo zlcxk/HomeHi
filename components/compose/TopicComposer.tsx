@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Flame, MessagesSquare } from "lucide-react";
+import { Link2, ListTodo, MessagesSquare, Paperclip } from "lucide-react";
 import { createTopicAction } from "@/app/actions/topics";
 import { ComposeHeader } from "@/components/compose/ComposeHeader";
 import { SaveBar } from "@/components/compose/SaveBar";
@@ -47,20 +47,33 @@ export function TopicComposer() {
         </div>
 
         <div className="card mt-4 p-4">
-          <label className="label" htmlFor="topic-keyword">
-            热门内容关键词
-          </label>
-          <input
-            id="topic-keyword"
-            name="keyword"
-            maxLength={40}
-            placeholder="留空则使用议题标题"
-            className="field"
-          />
-          <p className="mt-2 flex items-start gap-1.5 text-[10.5px] leading-relaxed text-faint">
-            <Flame size={12} className="mt-0.5 shrink-0 text-accent" />
-            发起后会从已接入的内容服务抓取 10 条热门参考，供家人一起看。
-          </p>
+          <p className="label">发起之后，一家人可以</p>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <div className="flex items-start gap-2">
+              <MessagesSquare size={13} className="mt-0.5 shrink-0 text-sage" />
+              <p className="text-[11px] leading-relaxed text-muted">
+                记下想法，补充自己的意见
+              </p>
+            </div>
+            <div className="flex items-start gap-2">
+              <Link2 size={13} className="mt-0.5 shrink-0 text-accent" />
+              <p className="text-[11px] leading-relaxed text-muted">
+                保存链接，直接粘贴其他 App 的分享文案
+              </p>
+            </div>
+            <div className="flex items-start gap-2">
+              <Paperclip size={13} className="mt-0.5 shrink-0 text-blue" />
+              <p className="text-[11px] leading-relaxed text-muted">
+                上传文件和照片，留下重要日期
+              </p>
+            </div>
+            <div className="flex items-start gap-2">
+              <ListTodo size={13} className="mt-0.5 shrink-0 text-gold" />
+              <p className="text-[11px] leading-relaxed text-muted">
+                关联待办，最后记录决定与结果
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="mt-4 flex items-start gap-2 rounded-2xl bg-raised/60 px-3.5 py-3 text-[11px] leading-relaxed text-muted">

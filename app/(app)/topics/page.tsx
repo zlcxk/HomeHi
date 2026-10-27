@@ -1,9 +1,16 @@
 import Link from "next/link";
-import { Flame, MessageCircle, MessagesSquare, Plus } from "lucide-react";
+import {
+  CalendarClock,
+  CheckCircle2,
+  MessageCircle,
+  MessagesSquare,
+  Paperclip,
+  Plus,
+} from "lucide-react";
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { formatDate } from "@/lib/dates";
-import { TOPIC_STANCES } from "@/lib/topics";
+import { formatDate, startOfDay } from "@/lib/dates";
+import { topicState, TOPIC_STANCES } from "@/lib/topics";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Avatar } from "@/components/Avatar";
@@ -12,11 +19,19 @@ type TopicCardData = {
   id: string;
   title: string;
   description: string | null;
+  decision: string | null;
   status: string;
   createdAt: Date;
   creator: { displayName: string; avatarMediaId: string | null };
   opinions: { stance: string }[];
-  _count: { opinions: number; contents: number };
+  dates: { label: string; date: Date }[];
+  _count: {
+    opinions: number;
+    notes: number;
+    links: number;
+    attachments: number;
+    tasks: number;
+  };
 };
 
 function stanceSummary(opinions: { stance: string }[]) {
@@ -27,41 +42,49 @@ function stanceSummary(opinions: { stance: string }[]) {
   })).filter((stance) => stance.count > 0);
 }
 
-function TopicCard({
-  topic,
-  timezone,
-  closed = false,
-}: {
-  topic: TopicCardData;
-  timezone: string;
-  closed?: boolean;
-}) {
+function TopicCard({ topic, timezone }: { topic: TopicCardData; timezone: string }) {
   const summary = stanceSummary(topic.opinions);
+  const state = topicState(topic.status, Boolean(topic.decision));
+  const faded = state.key === "CLOSED";
+  const nextDate = topic.dates[0] ?? null;
+  const fileCount = topic._count.links + topic._count.attachments;
 
   return (
     <Link
       href={`/topics/${topic.id}`}
       className={`card group flex flex-col p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-26px_rgba(80,55,20,0.45)] sm:p-5 ${
-        closed ? "opacity-80 hover:opacity-100" : ""
+        faded ? "opacity-80 hover:opacity-100" : ""
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span
-          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-            closed ? "bg-raised text-faint" : "bg-accent-soft text-accent"
-          }`}
-        >
-          {closed ? "已结束" : "讨论中"}
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${state.tone}`}>
+          {state.label}
         </span>
         <span className="text-[10.5px] text-faint">{formatDate(topic.createdAt, timezone)}</span>
       </div>
 
-      <h2 className={`mt-3 font-display text-[22px] leading-[1.15] tracking-[-0.01em] clamp-2 ${closed ? "text-muted" : ""}`}>
+      <h2
+        className={`mt-3 font-display text-[22px] leading-[1.15] tracking-[-0.01em] clamp-2 ${
+          faded ? "text-muted" : ""
+        }`}
+      >
         {topic.title}
       </h2>
 
-      {topic.description ? (
+      {topic.decision ? (
+        <p className="mt-2 flex items-start gap-1.5 text-[11.5px] leading-relaxed text-sage">
+          <CheckCircle2 size={12} className="mt-0.5 shrink-0" />
+          <span className="clamp-2">{topic.decision}</span>
+        </p>
+      ) : topic.description ? (
         <p className="mt-2 clamp-2 text-[11.5px] leading-relaxed text-muted">{topic.description}</p>
+      ) : null}
+
+      {nextDate ? (
+        <p className="mt-2 inline-flex items-center gap-1 text-[10.5px] text-muted">
+          <CalendarClock size={11} className="text-gold" />
+          {nextDate.label} · {formatDate(nextDate.date, timezone)}
+        </p>
       ) : null}
 
       {summary ? (
@@ -91,10 +114,13 @@ function TopicCard({
           {topic.creator.displayName}
         </span>
         <span className="inline-flex items-center gap-0.5 text-[10.5px] text-faint">
+          <MessagesSquare size={11} /> {topic._count.notes}
+        </span>
+        <span className="inline-flex items-center gap-0.5 text-[10.5px] text-faint">
           <MessageCircle size={11} /> {topic._count.opinions}
         </span>
         <span className="inline-flex items-center gap-0.5 text-[10.5px] text-faint">
-          <Flame size={11} /> {topic._count.contents}
+          <Paperclip size={11} /> {fileCount}
         </span>
       </div>
     </Link>
@@ -103,6 +129,7 @@ function TopicCard({
 
 export default async function TopicsPage() {
   const context = await requireContext();
+  const todayStart = startOfDay(new Date(), context.household.timezone);
 
   const topics = await prisma.topic.findMany({
     where: { householdId: context.household.id },
@@ -112,11 +139,26 @@ export default async function TopicsPage() {
       id: true,
       title: true,
       description: true,
+      decision: true,
       status: true,
       createdAt: true,
       creator: { select: { displayName: true, avatarMediaId: true } },
       opinions: { select: { stance: true } },
-      _count: { select: { opinions: true, contents: true } },
+      dates: {
+        where: { date: { gte: todayStart } },
+        orderBy: { date: "asc" },
+        take: 1,
+        select: { label: true, date: true },
+      },
+      _count: {
+        select: {
+          opinions: true,
+          notes: true,
+          links: true,
+          attachments: true,
+          tasks: true,
+        },
+      },
     },
   });
 
@@ -128,7 +170,7 @@ export default async function TopicsPage() {
       <PageHeader
         title="家庭议题"
         eyebrow="Family topics"
-        description="把想一起商量的事放上来，看看大家的热门参考和真实想法。"
+        description="把想一起商量的事放上来，记录想法、链接和文件，最后留下家人的决定。"
         action={
           <Link href="/compose/topic" className="btn btn-primary btn-sm">
             <Plus size={14} /> 发起议题
@@ -140,7 +182,7 @@ export default async function TopicsPage() {
         <EmptyState
           icon={<MessagesSquare strokeWidth={1.7} />}
           title="还没有议题"
-          description="装修、旅行、要不要养宠物……把需要一起决定的事写下来，家人可以补充看法。"
+          description="装修、旅行、要不要养宠物……把需要一起决定的事写下来，家人可以补充看法、链接和重要日期。"
           action={
             <Link href="/compose/topic" className="btn btn-primary btn-sm">
               <Plus size={14} /> 发起第一个议题
@@ -156,7 +198,7 @@ export default async function TopicsPage() {
                   正在讨论
                   <span className="ml-1.5 font-normal text-faint">{openTopics.length}</span>
                 </h2>
-                <span className="text-[10.5px] text-faint">点开看看家人的想法</span>
+                <span className="text-[10.5px] text-faint">点开补充想法和资料</span>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {openTopics.map((topic) => (
@@ -176,12 +218,7 @@ export default async function TopicsPage() {
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {closedTopics.map((topic) => (
-                  <TopicCard
-                    key={topic.id}
-                    topic={topic}
-                    timezone={context.household.timezone}
-                    closed
-                  />
+                  <TopicCard key={topic.id} topic={topic} timezone={context.household.timezone} />
                 ))}
               </div>
             </section>
