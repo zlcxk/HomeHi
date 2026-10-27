@@ -10,7 +10,7 @@
 
 - **今天**：一句问候、今天的日程与待办、家人的生日、接下来几天、那年今天、最近的照片和记录。
 - **时光**：按时间倒序的记录流，支持瞬间 / 手记筛选、标签与人物筛选、无限滚动。
-- **照片**：全家的照片墙、月份分组、收藏、视频、相册（封面、增删照片）。
+- **照片**：全家的照片墙、月份分组、收藏、视频、相册（封面、增删照片）；大图默认加载压缩后的清晰版本，随时可以「查看原图」。
 - **日历**：月视图、重复日程、当天议程、生日提醒、取消与删除。
 - **待办**：快速添加、优先级、负责人、重复待办、完成记录、逾期分组。
 - **家人与宠物**：人物/宠物档案、生日倒计时、相关照片、记录和日程。
@@ -24,7 +24,7 @@
 ## 技术栈
 
 Next.js 16（App Router、Server Actions）+ React 19 + TypeScript + Tailwind CSS 4，
-Prisma 6 + SQLite，Luxon 处理时区，sharp 生成缩略图，Nodemailer 发送提醒。
+Prisma 6 + SQLite，Luxon 处理时区，sharp 生成缩略图与展示图，ffmpeg 生成视频播放版，Nodemailer 发送提醒。
 
 设计语言是一套「暖纸」系统：米白纸面、墨色文字、陶土色强调、衬线标题；移动端优先，桌面端展开为侧栏。
 
@@ -32,7 +32,8 @@ Prisma 6 + SQLite，Luxon 处理时区，sharp 生成缩略图，Nodemailer 发�
 
 ## 快速开始
 
-要求 **Node.js 20+**（推荐 22）与 npm。
+要求 **Node.js 20+**（推荐 22）与 npm。若想让上传的视频自动压缩，还需要 ffmpeg：
+Docker 镜像已内置；本地通常由可选的 `ffmpeg-static` 提供，也可以安装系统 ffmpeg 或设置 `FFMPEG_PATH`。没有 ffmpeg 时视频会保留原片，其他功能不受影响。
 
 ```bash
 npm install
@@ -89,6 +90,7 @@ npm run worker:prod  # 另一个常驻进程，发送邮件提醒
 | `SMTP_*` | 邮件提醒所需的 SMTP 配置；不配置时应用会明确显示「未配置」 |
 | `WORKER_POLL_SECONDS` | worker 轮询间隔，默认 30 秒 |
 | `WORKER_REMINDER_HORIZON_DAYS` | 提醒预生成天数，默认 180 |
+| `FFMPEG_PATH` | 可选。指定 ffmpeg 可执行文件；不填时依次尝试项目内的 `ffmpeg-static` 和系统 `ffmpeg` |
 
 ### Docker Compose
 
@@ -109,6 +111,25 @@ SQLite 与本地文件存储都依赖这两个目录，**升级或迁移时请�
 只需要把 3000 端口暴露给代理。请设置 HTTPS，否则登录 Cookie 在公网中不安全。
 应用已经设置 `X-Frame-Options`、`X-Content-Type-Options`、Referrer-Policy 等基础响应头。
 如果使用 Nginx，上传大视频时记得调高 `client_max_body_size`。
+
+---
+
+## 照片与视频优化
+
+参考微信的做法：**浏览时看压缩版，需要时再看原图/原视频**。原文件始终完整保留，导出和下载拿到的也是原文件。
+
+- **照片**：上传时同步生成两张 WebP——网格/头像用的缩略图（最长边 900、质量 76）和详情页用的展示图（最长边 1920、质量 82）。
+  旧照片在第一次打开详情页时按需生成展示图，不需要手动跑迁移脚本；GIF 和动态图会保留原文件，避免丢帧。
+- **视频**：上传后由 worker 在后台转成 H.264/AAC 的 MP4（最长边 1280、CRF 23），播放器优先使用压缩版；
+  页面会显示「原视频 36 MB · 压缩版 2.6 MB」并提供「对比原视频」。转码不阻塞上传，也不阻塞提醒邮件。
+- **状态是诚实的**：视频转码状态为 `PENDING / PROCESSING / READY / SKIPPED / FAILED`。
+  未装 ffmpeg、原视频已经足够小或压缩收益不明显时会标记 `SKIPPED` 并继续使用原片，不会卡住队列。
+- **ffmpeg**：Docker 镜像已内置。非 Docker 部署可以安装系统 ffmpeg，或让 npm 安装可选的 `ffmpeg-static`；
+  也可以设置 `FFMPEG_PATH`。没有 ffmpeg 时应用仍可正常使用，只是视频保留原片；装好 ffmpeg 后重启 worker，
+  启动时会自动把此前因缺少 ffmpeg 而跳过的视频重新排队。
+- **缓存**：展示图、播放版和缩略图都带 `private` 缓存头，只有已登录且有权查看的人能读取，浏览器和家庭内网可重复使用。
+
+> 视频压缩发生在 worker 进程，请确保 `npm run worker:prod`（或 Compose 的 worker 容器）持续运行。
 
 ---
 
@@ -180,7 +201,7 @@ app/
   actions/      Server Actions（写入与权限检查）
   api/          媒体上传/读取、时间线分页、导出、健康检查
 components/     设计系统与交互组件
-lib/            权限、重复规则、提醒、日期、存储、演示数据
+lib/            权限、重复规则、提醒、日期、存储、图片/视频压缩、演示数据
 prisma/         schema 与迁移
 scripts/        worker、seed、backup、目录初始化
 tests/          Vitest 单元测试

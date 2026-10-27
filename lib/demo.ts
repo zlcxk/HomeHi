@@ -78,6 +78,7 @@ async function createDemoImage(index: number, caption: string, takenAt: Date, co
       storageKey,
       storageDriver: driver.kind,
       thumbnailKey,
+      playbackStatus: "READY",
       width: 1200,
       height: 900,
       takenAt,
@@ -461,6 +462,8 @@ export async function clearDemoData(householdId: string): Promise<void> {
     media.flatMap((item) => [
       removeStoredFile(item.storageKey, item.storageDriver),
       removeStoredFile(item.thumbnailKey, item.storageDriver),
+      removeStoredFile(item.displayKey, item.storageDriver),
+      removeStoredFile(item.playbackKey, item.storageDriver),
     ]),
   );
 }

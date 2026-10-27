@@ -5,6 +5,12 @@ import type { Notification } from "@prisma/client";
 import { prisma } from "../lib/db";
 import { sendReminderEmail, smtpStatus } from "../lib/mailer";
 import { MAX_NOTIFICATION_ATTEMPTS, extendRecurringNotifications } from "../lib/reminders";
+import {
+  drainVideoQueue,
+  recoverStaleVideoJobs,
+  requeueVideosWithoutFfmpeg,
+  resolveFfmpeg,
+} from "../lib/video";
 
 const POLL_SECONDS = Math.max(5, Number(process.env.WORKER_POLL_SECONDS || 30));
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -12,6 +18,7 @@ const RETRY_MINUTES = [5, 15, 45, 120];
 
 let stopping = false;
 let lastExtend = 0;
+let lastVideoRecovery = 0;
 
 function log(...args: unknown[]) {
   console.log(`[worker ${new Date().toISOString()}]`, ...args);
@@ -209,6 +216,11 @@ async function main() {
     }`,
   );
   await prisma.$connect();
+  await recoverStaleVideoJobs();
+  const ffmpeg = await resolveFfmpeg();
+  log(`video compression ${ffmpeg ? `ready (${ffmpeg})` : "unavailable; videos will keep the original file"}`);
+  const requeued = await requeueVideosWithoutFfmpeg();
+  if (requeued > 0) log(`requeued ${requeued} video(s) now that ffmpeg is available`);
 
   while (!stopping) {
     try {
@@ -218,6 +230,12 @@ async function main() {
         lastExtend = Date.now();
         if (created > 0) log(`extended recurring reminders (+${created})`);
       }
+      if (Date.now() - lastVideoRecovery > 10 * 60_000) {
+        lastVideoRecovery = Date.now();
+        await recoverStaleVideoJobs();
+      }
+      // 视频压缩比较慢，放到后台跑；提醒发送不被它挡住。
+      void drainVideoQueue();
     } catch (error) {
       log("cycle failed", error);
     }

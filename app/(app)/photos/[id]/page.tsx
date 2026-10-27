@@ -58,6 +58,12 @@ export default async function PhotoDetailPage({ params }: { params: Promise<{ id
 
   const canEdit = media.uploadedBy === context.user.id || context.role === "OWNER";
   const takenAt = media.takenAt ?? media.createdAt;
+  const playbackReady = Boolean(media.playbackKey) && media.playbackStatus === "READY";
+  const videoSrc = playbackReady
+    ? `/api/media/${media.id}/playback`
+    : `/api/media/${media.id}/file`;
+  const optimizingVideo =
+    media.mediaType === "VIDEO" && media.playbackStatus === "PENDING";
 
   return (
     <div>
@@ -97,14 +103,24 @@ export default async function PhotoDetailPage({ params }: { params: Promise<{ id
             playsInline
             poster={media.thumbnailKey ? `/api/media/${media.id}/thumb` : undefined}
             className="max-h-[76vh] w-full"
-            src={`/api/media/${media.id}/file`}
+            src={videoSrc}
           />
         ) : (
-          <img
-            src={`/api/media/${media.id}/file`}
-            alt={media.caption || "照片"}
-            className="max-h-[76vh] w-full object-contain"
-          />
+          <>
+            <img
+              src={`/api/media/${media.id}/display`}
+              alt={media.caption || "照片"}
+              className="max-h-[76vh] w-full object-contain"
+            />
+            <a
+              href={`/api/media/${media.id}/file`}
+              target="_blank"
+              rel="noreferrer"
+              className="absolute bottom-2.5 right-2.5 rounded-full bg-black/45 px-3 py-1.5 text-[10.5px] text-white backdrop-blur transition hover:bg-black/65"
+            >
+              查看原图
+            </a>
+          </>
         )}
 
         {prev ? (
@@ -140,7 +156,30 @@ export default async function PhotoDetailPage({ params }: { params: Promise<{ id
           </>
         ) : null}
         <span className="h-1 w-1 rounded-full bg-line-strong" />
-        <span>{formatBytes(media.fileSize)}</span>
+        {media.mediaType === "VIDEO" ? (
+          <>
+            <span>原视频 {formatBytes(media.fileSize)}</span>
+            {playbackReady && media.playbackSize ? (
+              <span>压缩版 {formatBytes(media.playbackSize)}</span>
+            ) : optimizingVideo ? (
+              <span>压缩版生成中</span>
+            ) : null}
+            <a
+              href={`/api/media/${media.id}/file`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent hover:underline"
+              title={media.playbackError || undefined}
+            >
+              {playbackReady ? "对比原视频" : "播放原视频"}
+            </a>
+          </>
+        ) : (
+          <>
+            <span>原图 {formatBytes(media.fileSize)}</span>
+            {media.displaySize ? <span>详情版 {formatBytes(media.displaySize)}</span> : null}
+          </>
+        )}
         {media.visibility === "PRIVATE" ? (
           <span className="inline-flex items-center gap-1">
             <Lock size={10} /> 仅自己

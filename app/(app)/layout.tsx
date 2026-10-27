@@ -11,6 +11,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         userName={context.user.displayName}
         userEmail={context.user.email}
         householdName={context.household.name}
+        avatarUrl={
+          context.user.avatarMediaId ? `/api/media/${context.user.avatarMediaId}/thumb` : null
+        }
       />
       <PullToSearch />
       <div className="lg:pl-[254px]">

@@ -46,6 +46,8 @@ export async function POST(request: Request) {
         mimeType: media.mimeType,
         originalFilename: media.originalFilename,
         thumbUrl: media.thumbnailKey ? `/api/media/${media.id}/thumb` : null,
+        displayUrl: media.displayKey ? `/api/media/${media.id}/display` : null,
+        playbackStatus: media.playbackStatus,
         url: `/api/media/${media.id}/file`,
       },
     });

@@ -30,8 +30,12 @@ export async function DELETE(
   if (!referenced) {
     await prisma.media.delete({ where: { id } });
     const driver = await getStorageDriver(media.storageDriver);
-    await removeStoredFile(media.storageKey, driver.kind);
-    await removeStoredFile(media.thumbnailKey, driver.kind);
+    await Promise.all([
+      removeStoredFile(media.storageKey, driver.kind),
+      removeStoredFile(media.thumbnailKey, driver.kind),
+      removeStoredFile(media.displayKey, driver.kind),
+      removeStoredFile(media.playbackKey, driver.kind),
+    ]);
     return NextResponse.json({ ok: true, purged: true });
   }
 

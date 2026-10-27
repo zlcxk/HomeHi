@@ -46,14 +46,14 @@ export default async function MyPage() {
     }),
     prisma.familyProfile.findFirst({
       where: { householdId: context.household.id, linkedUserId: context.user.id },
-      select: { id: true, avatarMediaId: true },
+      select: { id: true },
     }),
   ]);
 
-  const avatar = profile?.avatarMediaId
+  const avatar = context.user.avatarMediaId
     ? await prisma.media.findFirst({
         where: {
-          id: profile.avatarMediaId,
+          id: context.user.avatarMediaId,
           householdId: context.household.id,
           status: "ACTIVE",
           OR: [{ visibility: "HOUSEHOLD" }, { uploadedBy: context.user.id }],

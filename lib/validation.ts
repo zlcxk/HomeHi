@@ -202,6 +202,7 @@ export const profileSettingsSchema = z.object({
   displayName: z.string().trim().min(1, "请填写称呼").max(40, "称呼过长"),
   timezone: z.string().min(1, "请选择时区"),
   defaultVisibility: z.enum(["HOUSEHOLD", "PRIVATE"]),
+  avatarMediaId: z.string().optional().default(""),
 });
 
 export const householdSchema = z.object({

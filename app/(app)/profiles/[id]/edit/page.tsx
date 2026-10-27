@@ -41,6 +41,7 @@ export default async function EditProfilePage({ params }: { params: Promise<{ id
     visibility: profile.visibility,
     avatarUrl: avatar ? `/api/media/${avatar.id}/thumb` : null,
     avatarMediaId: avatar?.id ?? null,
+    isLinkedAccount: Boolean(profile.linkedUserId),
   };
 
   return <ProfileForm initial={initial} defaultVisibility={context.user.defaultVisibility} />;

@@ -141,20 +141,36 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ id
       {media.length > 0 ? (
         <div className="mb-8 space-y-2">
           {media.map((item) => (
-            <div key={item.id} className="overflow-hidden rounded-[22px] bg-raised">
+            <div key={item.id} className="relative overflow-hidden rounded-[22px] bg-raised">
               {item.mediaType === "VIDEO" ? (
-                <video
-                  controls
-                  playsInline
-                  preload="metadata"
-                  poster={item.thumbnailKey ? `/api/media/${item.id}/thumb` : undefined}
-                  className="max-h-[64vh] w-full bg-black object-contain"
-                  src={`/api/media/${item.id}/file`}
-                />
+                <>
+                  <video
+                    controls
+                    playsInline
+                    preload="metadata"
+                    poster={item.thumbnailKey ? `/api/media/${item.id}/thumb` : undefined}
+                    className="max-h-[64vh] w-full bg-black object-contain"
+                    src={
+                      item.playbackStatus === "READY" && item.playbackKey
+                        ? `/api/media/${item.id}/playback`
+                        : `/api/media/${item.id}/file`
+                    }
+                  />
+                  {item.playbackStatus === "READY" && item.playbackKey ? (
+                    <a
+                      href={`/api/media/${item.id}/file`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="absolute right-2.5 top-2.5 rounded-full bg-black/45 px-3 py-1.5 text-[10px] text-white backdrop-blur transition hover:bg-black/65"
+                    >
+                      原视频
+                    </a>
+                  ) : null}
+                </>
               ) : (
                 <Link href={`/photos/${item.id}`} className="block">
                   <img
-                    src={`/api/media/${item.id}/file`}
+                    src={`/api/media/${item.id}/display`}
                     alt={item.caption || entry.title || "记录照片"}
                     className="max-h-[72vh] w-full object-contain"
                   />

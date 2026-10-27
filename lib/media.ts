@@ -9,7 +9,8 @@ import {
   MEDIA_VIDEO_TYPES,
   MIME_EXTENSION,
 } from "@/lib/constants";
-import { getStorageDriver, makeStorageKey, makeThumbKey, type StorageDriver } from "@/lib/storage";
+import { getStorageDriver, makeStorageKey } from "@/lib/storage";
+import { storeDisplayImage, storeThumbnail } from "@/lib/media-variants";
 import type { AppContext } from "@/lib/auth";
 
 const IMAGE_TYPES = new Set<string>(MEDIA_IMAGE_TYPES);
@@ -57,35 +58,20 @@ export function sanitizeFilename(name: string): string {
   return base.replace(/[\u0000-\u001f<>:"|?*]/g, "_").slice(0, 180) || "file";
 }
 
-async function makeThumbnail(
-  buffer: Buffer,
-  key: string,
-  driver: StorageDriver,
-): Promise<string | null> {
-  try {
-    const thumb = await sharp(buffer, { failOn: "none" })
-      .rotate()
-      .resize({ width: 900, height: 900, fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 78 })
-      .toBuffer();
-    await driver.put(key, thumb, "image/webp");
-    return key;
-  } catch {
-    return null;
-  }
-}
-
 async function imageMetadata(buffer: Buffer): Promise<{
   width: number | null;
   height: number | null;
   takenAt: Date | null;
+  animated: boolean;
 }> {
   let width: number | null = null;
   let height: number | null = null;
+  let animated = false;
   try {
     const meta = await sharp(buffer, { failOn: "none" }).metadata();
     width = meta.width ?? null;
     height = meta.height ?? null;
+    animated = Boolean(meta.pages && meta.pages > 1);
     if (meta.orientation && meta.orientation >= 5) {
       [width, height] = [height, width];
     }
@@ -102,7 +88,7 @@ async function imageMetadata(buffer: Buffer): Promise<{
   } catch {
     // unreadable exif is not fatal
   }
-  return { width, height, takenAt };
+  return { width, height, takenAt, animated };
 }
 
 export type UploadFields = {
@@ -120,6 +106,8 @@ export type UploadedMedia = {
   height: number | null;
   durationSeconds: number | null;
   thumbnailKey: string | null;
+  displayKey: string | null;
+  playbackStatus: string;
   mimeType: string;
   originalFilename: string;
 };
@@ -155,30 +143,42 @@ export async function processMediaUpload(
 
   const isImage = IMAGE_TYPES.has(mime);
   let thumbnailKey: string | null = null;
+  let displayKey: string | null = null;
+  let displaySize: number | null = null;
   let width: number | null = null;
   let height: number | null = null;
+  let durationSeconds: number | null = null;
   let takenAt: Date | null = null;
   let mediaType: string = isImage ? "IMAGE" : "VIDEO";
+  let playbackStatus = "PENDING";
 
   if (isImage) {
     const meta = await imageMetadata(buffer);
     width = meta.width;
     height = meta.height;
     takenAt = meta.takenAt;
-    thumbnailKey = await makeThumbnail(buffer, makeThumbKey(), driver);
+    playbackStatus = "READY";
+    const thumb = await storeThumbnail(buffer, driver);
+    thumbnailKey = thumb?.key ?? null;
+    // GIF / 动态 WebP 转成静态图会丢动画，保留原文件作为展示版本。
+    if (!meta.animated && mime !== "image/gif") {
+      const display = await storeDisplayImage(buffer, driver);
+      displayKey = display?.key ?? null;
+      displaySize = display?.size ?? null;
+    }
   } else {
     const clientWidth = Number(fields.clientWidth);
     const clientHeight = Number(fields.clientHeight);
     width = Number.isFinite(clientWidth) && clientWidth > 0 ? Math.round(clientWidth) : null;
     height = Number.isFinite(clientHeight) && clientHeight > 0 ? Math.round(clientHeight) : null;
     const duration = Number(fields.durationSeconds);
-    if (!Number.isFinite(duration) || duration <= 0) {
-      // duration stays null; UI falls back to an unknown label
-    }
+    if (Number.isFinite(duration) && duration > 0) durationSeconds = duration;
+
     if (poster) {
       const posterBuffer = Buffer.from(await poster.arrayBuffer());
       if (posterBuffer.length <= 8 * 1024 * 1024) {
-        thumbnailKey = await makeThumbnail(posterBuffer, makeThumbKey(), driver);
+        const thumb = await storeThumbnail(posterBuffer, driver);
+        thumbnailKey = thumb?.key ?? null;
         if (!width || !height) {
           try {
             const meta = await sharp(posterBuffer, { failOn: "none" }).metadata();
@@ -207,9 +207,12 @@ export async function processMediaUpload(
       storageKey,
       storageDriver: driver.kind,
       thumbnailKey,
+      displayKey,
+      displaySize,
+      playbackStatus,
       width,
       height,
-      durationSeconds: fields.durationSeconds ? Number(fields.durationSeconds) || null : null,
+      durationSeconds,
       takenAt,
       visibility: fields.visibility === "PRIVATE" ? "PRIVATE" : "HOUSEHOLD",
       checksum,
@@ -223,6 +226,8 @@ export async function processMediaUpload(
     height: media.height,
     durationSeconds: media.durationSeconds,
     thumbnailKey: media.thumbnailKey,
+    displayKey: media.displayKey,
+    playbackStatus: media.playbackStatus,
     mimeType: media.mimeType,
     originalFilename: media.originalFilename,
   };

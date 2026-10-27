@@ -52,10 +52,12 @@ export function AppNavigation({
   userName,
   userEmail,
   householdName,
+  avatarUrl,
 }: {
   userName: string;
   userEmail: string;
   householdName: string;
+  avatarUrl?: string | null;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -116,7 +118,7 @@ export function AppNavigation({
             href="/settings/profile"
             className="flex items-center gap-2.5 rounded-2xl border border-line bg-surface p-2.5 transition hover:bg-raised"
           >
-            <Avatar name={userName} size={34} />
+            <Avatar name={userName} src={avatarUrl} size={34} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13px] font-semibold">{userName}</span>
               <span className="block truncate text-[11px] text-faint">{householdName}</span>

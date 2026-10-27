@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight, LogOut, UserRound } from "lucide-react";
 import { requireContext } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { logoutAction } from "@/app/actions/auth";
 import { AccountForm } from "@/components/settings/AccountForm";
 import { PasswordForm } from "@/components/settings/PasswordForm";
@@ -8,12 +9,26 @@ import { PasswordForm } from "@/components/settings/PasswordForm";
 export default async function AccountSettingsPage() {
   const context = await requireContext();
 
+  const avatar = context.user.avatarMediaId
+    ? await prisma.media.findFirst({
+        where: {
+          id: context.user.avatarMediaId,
+          householdId: context.household.id,
+          status: "ACTIVE",
+          OR: [{ visibility: "HOUSEHOLD" }, { uploadedBy: context.user.id }],
+        },
+        select: { id: true },
+      })
+    : null;
+
   return (
     <div className="space-y-5">
       <AccountForm
         displayName={context.user.displayName}
         email={context.user.email}
         defaultVisibility={context.user.defaultVisibility}
+        avatarMediaId={avatar?.id ?? null}
+        avatarUrl={avatar ? `/api/media/${avatar.id}/thumb` : null}
       />
 
       <div className="card flex items-center justify-between gap-3 px-4 py-3.5">

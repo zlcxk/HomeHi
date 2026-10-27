@@ -34,8 +34,24 @@ export async function updateAccountAction(
     displayName: formString(formData, "displayName"),
     timezone: context.user.timezone,
     defaultVisibility: formString(formData, "defaultVisibility") || "HOUSEHOLD",
+    avatarMediaId: formString(formData, "avatarMediaId"),
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
+
+  let avatarMediaId: string | null = null;
+  if (parsed.data.avatarMediaId) {
+    const media = await prisma.media.findFirst({
+      where: {
+        id: parsed.data.avatarMediaId,
+        householdId: context.household.id,
+        status: "ACTIVE",
+        OR: [{ visibility: "HOUSEHOLD" }, { uploadedBy: context.user.id }],
+      },
+      select: { id: true },
+    });
+    if (!media) return { error: "头像照片不可用，请重新选择" };
+    avatarMediaId = media.id;
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
@@ -43,20 +59,21 @@ export async function updateAccountAction(
       data: {
         displayName: parsed.data.displayName,
         defaultVisibility: parsed.data.defaultVisibility,
+        avatarMediaId,
       },
     });
+    // 账号是这个人的身份来源：同步到已关联的家庭档案，避免两个地方各叫各的。
     await tx.familyProfile.updateMany({
       where: {
         householdId: context.household.id,
         linkedUserId: context.user.id,
-        name: context.user.displayName,
       },
-      data: { name: parsed.data.displayName },
+      data: { name: parsed.data.displayName, avatarMediaId },
     });
   });
 
-  revalidatePath("/my");
-  revalidatePath("/settings/profile");
+  // 称呼与头像出现在时光、议题、待办、导航等所有页面，整棵路由一起失效。
+  revalidatePath("/", "layout");
   return { success: "已保存" };
 }
 

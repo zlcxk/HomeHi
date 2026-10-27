@@ -120,6 +120,20 @@ export function makeThumbKey(): string {
   return `thumbs/${year}/${month}/${randomUUID()}.webp`;
 }
 
+export function makeDisplayKey(): string {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  return `display/${year}/${month}/${randomUUID()}.webp`;
+}
+
+export function makePlaybackKey(): string {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+  return `playback/${year}/${month}/${randomUUID()}.mp4`;
+}
+
 export function mediaUrl(id: string, variant: "file" | "thumb" = "file", version?: string): string {
   return `/api/media/${id}/${variant}${version ? `?v=${encodeURIComponent(version)}` : ""}`;
 }

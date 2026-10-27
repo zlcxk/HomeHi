@@ -290,6 +290,14 @@ model Media {
   storageKey       String
   storageDriver    String    @default("LOCAL") // LOCAL | OSS，记录文件写入时的存储后端
   thumbnailKey     String?
+  // 中等尺寸 WebP：详情页默认加载它，原图仍保留在 storageKey 里。
+  displayKey       String?
+  displaySize      Int?
+  // 视频的压缩播放版（H.264 MP4），原视频保留用于“查看原片”。
+  playbackKey      String?
+  playbackSize     Int?
+  playbackStatus   String    @default("PENDING") // PENDING | PROCESSING | READY | SKIPPED | FAILED
+  playbackError    String?
   width            Int?
   height           Int?
   durationSeconds  Float?

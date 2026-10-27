@@ -13,10 +13,9 @@ import {
 } from "@/lib/validation";
 
 function revalidateProfileSurfaces(id?: string) {
+  // 关联账号的档案改动会出现在时光、议题、待办和导航里，整棵路由一起失效。
+  revalidatePath("/", "layout");
   revalidatePath("/profiles");
-  revalidatePath("/today");
-  revalidatePath("/timeline");
-  revalidatePath("/search");
   revalidatePath("/my");
   if (id) revalidatePath(`/profiles/${id}`);
 }
@@ -90,7 +89,17 @@ export async function saveProfileAction(
     if (existing.linkedUserId && existing.linkedUserId !== context.user.id && context.role !== "OWNER") {
       return { error: "只有管理员可以修改成员的档案" };
     }
-    await prisma.familyProfile.update({ where: { id }, data: payload });
+    await prisma.$transaction(async (tx) => {
+      await tx.familyProfile.update({ where: { id }, data: payload });
+      if (existing.linkedUserId) {
+        // 已关联账号的档案就是这个人：改称呼/头像时同步回账号，
+        // 否则时光卡片、议题和导航会继续显示旧身份。
+        await tx.user.update({
+          where: { id: existing.linkedUserId },
+          data: { displayName: data.name, avatarMediaId },
+        });
+      }
+    });
   } else {
     const created = await prisma.familyProfile.create({
       data: {

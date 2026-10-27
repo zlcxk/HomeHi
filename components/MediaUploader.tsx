@@ -188,6 +188,7 @@ export function MediaUploader({
   visibility,
   max = 30,
   single = false,
+  avatar = false,
   fieldName = "mediaIds",
   compact = false,
   label,
@@ -198,6 +199,8 @@ export function MediaUploader({
   visibility: string;
   max?: number;
   single?: boolean;
+  /** 头像场景：单张、正方形圆形预览，和最终展示保持一致。 */
+  avatar?: boolean;
   fieldName?: string;
   compact?: boolean;
   label?: string;
@@ -422,8 +425,12 @@ export function MediaUploader({
             {items.map((item, index) => (
               <div
                 key={item.key}
-                className={`group relative overflow-hidden rounded-[16px] border border-line bg-raised ${
-                  single ? "aspect-video w-full max-w-[280px]" : "aspect-square"
+                className={`group relative overflow-hidden border border-line bg-raised ${
+                  avatar
+                    ? "aspect-square w-full max-w-[160px] rounded-full"
+                    : single
+                      ? "aspect-video w-full max-w-[280px] rounded-[16px]"
+                      : "aspect-square rounded-[16px]"
                 }`}
               >
                 {item.previewUrl || item.posterUrl ? (
@@ -538,7 +545,11 @@ export function MediaUploader({
             ) : null}
           </div>
 
-          <div className="mt-2.5 flex items-center justify-between gap-3">
+          <div
+            className={`mt-2.5 flex items-center justify-between gap-3 ${
+              avatar ? "max-w-[300px]" : ""
+            }`}
+          >
             <p className="text-[11px] text-faint">
               {single ? "已选 1 张" : `${doneItems.length}/${max} · 第一张作为封面`}
             </p>

@@ -25,6 +25,7 @@ export type ProfileInitial = {
   visibility: string;
   avatarUrl: string | null;
   avatarMediaId: string | null;
+  isLinkedAccount?: boolean;
 };
 
 export function ProfileForm({
@@ -84,6 +85,9 @@ export function ProfileForm({
 
         <div className="mt-6">
           <label className="label">{type === "PET" ? "它的照片" : "头像"}</label>
+          {initial?.isLinkedAccount ? (
+            <p className="field-hint mb-2">这是你的账号档案，称呼和头像会同步到账号与所有记录。</p>
+          ) : null}
           <MediaUploader
             initial={
               initial?.avatarMediaId
@@ -100,6 +104,7 @@ export function ProfileForm({
             visibility={visibility}
             max={1}
             single
+            avatar
             fieldName="avatarMediaId"
             label="选择照片"
             onBusyChange={setBusy}

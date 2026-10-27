@@ -175,7 +175,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
       <div className="card overflow-hidden">
         {photo ? (
           <img
-            src={`/api/media/${photo.id}/file`}
+            src={`/api/media/${photo.id}/display`}
             alt=""
             className="aspect-[16/8] w-full object-cover"
           />

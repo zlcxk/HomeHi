@@ -14,7 +14,11 @@ export default async function HouseholdSettingsPage() {
 
   const members = await prisma.householdMember.findMany({
     where: { householdId: context.household.id },
-    include: { user: { select: { id: true, displayName: true, email: true, lastLoginAt: true } } },
+    include: {
+      user: {
+        select: { id: true, displayName: true, email: true, lastLoginAt: true, avatarMediaId: true },
+      },
+    },
     orderBy: { createdAt: "asc" },
   });
 
@@ -41,7 +45,15 @@ export default async function HouseholdSettingsPage() {
         <div className="card divide-y divide-line overflow-hidden">
           {members.map((member) => (
             <div key={member.id} className="flex items-center gap-3 px-4 py-3.5">
-              <Avatar name={member.user.displayName} size={36} />
+              <Avatar
+                name={member.user.displayName}
+                src={
+                  member.user.avatarMediaId
+                    ? `/api/media/${member.user.avatarMediaId}/thumb`
+                    : null
+                }
+                size={36}
+              />
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1.5 truncate text-[13px] font-medium">
                   {member.user.displayName}

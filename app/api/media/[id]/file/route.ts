@@ -1,9 +1,8 @@
-import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 import { getApiContext } from "@/lib/auth";
 import { canViewMedia } from "@/lib/access";
 import { prisma } from "@/lib/db";
-import { getStorageDriver } from "@/lib/storage";
+import { storedFileResponse } from "@/lib/media-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,54 +23,14 @@ export async function GET(
     return NextResponse.json({ error: "文件不存在" }, { status: 404 });
   }
 
-  const driver = await getStorageDriver(media.storageDriver);
-  const stat = await driver.stat(media.storageKey);
-  if (!stat) return NextResponse.json({ error: "文件不存在" }, { status: 404 });
-
   const url = new URL(request.url);
-  const download = url.searchParams.get("download") === "1";
-  const rangeHeader = request.headers.get("range");
-  const disposition = `${download ? "attachment" : "inline"}; filename*=UTF-8''${encodeURIComponent(
-    media.originalFilename,
-  )}`;
-
-  const baseHeaders: Record<string, string> = {
-    "Content-Type": media.mimeType,
-    "Accept-Ranges": "bytes",
-    "Cache-Control": "private, max-age=3600",
-    "Content-Disposition": disposition,
-    "X-Content-Type-Options": "nosniff",
-  };
-
-  if (rangeHeader) {
-    const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
-    if (match) {
-      const start = match[1] ? Number(match[1]) : 0;
-      const end = match[2] ? Number(match[2]) : stat.size - 1;
-      if (Number.isFinite(start) && Number.isFinite(end) && start <= end && start < stat.size) {
-        const safeEnd = Math.min(end, stat.size - 1);
-        const object = await driver.get(media.storageKey, { start, end: safeEnd });
-        if (!object) return NextResponse.json({ error: "文件不存在" }, { status: 404 });
-        return new Response(Readable.toWeb(object.stream) as unknown as ReadableStream, {
-          status: 206,
-          headers: {
-            ...baseHeaders,
-            "Content-Range": `bytes ${start}-${safeEnd}/${stat.size}`,
-            "Content-Length": String(safeEnd - start + 1),
-          },
-        });
-      }
-      return new Response(null, {
-        status: 416,
-        headers: { "Content-Range": `bytes */${stat.size}` },
-      });
-    }
-  }
-
-  const object = await driver.get(media.storageKey);
-  if (!object) return NextResponse.json({ error: "文件不存在" }, { status: 404 });
-  return new Response(Readable.toWeb(object.stream) as unknown as ReadableStream, {
-    status: 200,
-    headers: { ...baseHeaders, "Content-Length": String(stat.size) },
+  const response = await storedFileResponse(request, {
+    key: media.storageKey,
+    kind: media.storageDriver,
+    contentType: media.mimeType,
+    cacheControl: "private, max-age=3600",
+    filename: media.originalFilename,
+    download: url.searchParams.get("download") === "1",
   });
+  return response ?? NextResponse.json({ error: "文件不存在" }, { status: 404 });
 }
