@@ -8,7 +8,7 @@ export const entryCardInclude = {
     },
   },
   tags: { include: { tag: { select: { name: true } } } },
-  creator: { select: { id: true, displayName: true } },
+  creator: { select: { id: true, displayName: true, avatarMediaId: true } },
 } satisfies Prisma.EntryInclude;
 
 export type EntryCardRecord = Prisma.EntryGetPayload<{ include: typeof entryCardInclude }>;
@@ -28,11 +28,13 @@ export type EntryCardData = {
   entryType: string;
   title: string | null;
   body: string | null;
+  location: string | null;
   occurredAt: string;
   visibility: string;
   status: string;
   isDemo: boolean;
   creatorName: string;
+  creatorAvatarUrl: string | null;
   media: EntryCardMedia[];
   profiles: { id: string; name: string; profileType: string }[];
   tags: string[];
@@ -47,11 +49,15 @@ export function toEntryCard(
     entryType: entry.entryType,
     title: entry.title,
     body: entry.body,
+    location: entry.location,
     occurredAt: entry.occurredAt.toISOString(),
     visibility: entry.visibility,
     status: entry.status,
     isDemo: entry.isDemo,
     creatorName: entry.creator.displayName,
+    creatorAvatarUrl: entry.creator.avatarMediaId
+      ? `/api/media/${entry.creator.avatarMediaId}/thumb`
+      : null,
     media: entry.media
       .map((link) => link.media)
       .filter((media) => media.status === "ACTIVE")

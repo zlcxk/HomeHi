@@ -7,6 +7,7 @@ import { ComposeHeader } from "@/components/compose/ComposeHeader";
 import { SaveBar } from "@/components/compose/SaveBar";
 import { ProfilePicker, type ProfileOption } from "@/components/pickers/ProfilePicker";
 import { AssetPicker } from "@/components/pickers/AssetPicker";
+import { LocationField } from "@/components/pickers/LocationField";
 import type { AssetOption } from "@/lib/view";
 import { RecurrencePicker } from "@/components/pickers/RecurrencePicker";
 import { ReminderPicker } from "@/components/pickers/ReminderPicker";
@@ -21,6 +22,7 @@ export type TaskInitial = {
   id: string;
   title: string;
   description: string;
+  location: string;
   dueAt: string;
   priority: string;
   assigneeUserId: string;
@@ -50,6 +52,7 @@ function dateOnly(date: Date): string {
 export function TaskComposer({
   profiles,
   assets = [],
+  locations = [],
   members,
   defaultVisibility,
   smtpConfigured,
@@ -63,6 +66,7 @@ export function TaskComposer({
 }: {
   profiles: ProfileOption[];
   assets?: AssetOption[];
+  locations?: string[];
   members: { id: string; name: string; role: string }[];
   defaultVisibility: string;
   smtpConfigured: boolean;
@@ -200,6 +204,10 @@ export function TaskComposer({
               ))}
             </select>
           </div>
+        </div>
+
+        <div className="mt-5">
+          <LocationField defaultValue={initial?.location || ""} suggestions={locations} />
         </div>
 
         <div className="mt-5">

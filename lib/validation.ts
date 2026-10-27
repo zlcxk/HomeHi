@@ -63,6 +63,7 @@ export const loginSchema = z.object({
 export const entrySchema = z.object({
   title: z.string().max(160, "标题过长").optional().default(""),
   body: z.string().max(20_000, "正文过长").optional().default(""),
+  location: z.string().max(200, "地点过长").optional().default(""),
   entryType: z.enum(["MOMENT", "STORY", "EVENT_RECAP", "GENERAL"]),
   occurredAt: z.string().min(1, "请选择发生时间"),
   visibility: z.enum(["HOUSEHOLD", "PRIVATE"]),
@@ -89,6 +90,7 @@ export const eventSchema = z.object({
 export const taskSchema = z.object({
   title: z.string().trim().min(1, "请填写待办标题").max(160, "标题过长"),
   description: z.string().max(4000).optional().default(""),
+  location: z.string().max(200, "地点过长").optional().default(""),
   dueAt: z.string().optional().default(""),
   priority: z.enum(["NORMAL", "IMPORTANT"]),
   assigneeUserId: z.string().optional().default(""),

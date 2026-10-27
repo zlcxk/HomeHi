@@ -61,6 +61,7 @@ export async function saveTaskAction(
   const parsed = taskSchema.safeParse({
     title: formString(formData, "title"),
     description: formString(formData, "description"),
+    location: formString(formData, "location"),
     dueAt: formString(formData, "dueAt"),
     priority: formString(formData, "priority") || "NORMAL",
     assigneeUserId: formString(formData, "assigneeUserId"),
@@ -105,6 +106,7 @@ export async function saveTaskAction(
       data: {
         title: data.title,
         description: data.description || null,
+        location: data.location.trim() || null,
         dueAt,
         priority: data.priority,
         assigneeUserId,
@@ -124,6 +126,7 @@ export async function saveTaskAction(
         createdBy: context.user.id,
         title: data.title,
         description: data.description || null,
+        location: data.location.trim() || null,
         dueAt,
         priority: data.priority,
         assigneeUserId,

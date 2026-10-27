@@ -7,6 +7,7 @@ import { ComposeHeader } from "@/components/compose/ComposeHeader";
 import { SaveBar } from "@/components/compose/SaveBar";
 import { MediaUploader, type MediaItem } from "@/components/MediaUploader";
 import { ProfilePicker, type ProfileOption } from "@/components/pickers/ProfilePicker";
+import { LocationField } from "@/components/pickers/LocationField";
 import { TagPicker } from "@/components/pickers/TagPicker";
 import { VisibilityControl } from "@/components/pickers/VisibilityControl";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -20,6 +21,7 @@ export type StoryInitial = {
   entryType: string;
   title: string;
   body: string;
+  location: string;
   occurredAt: string;
   visibility: string;
   status: string;
@@ -31,6 +33,7 @@ export type StoryInitial = {
 export function StoryComposer({
   profiles,
   tags,
+  locations = [],
   defaultVisibility,
   defaultOccurredAt,
   initial,
@@ -38,6 +41,7 @@ export function StoryComposer({
 }: {
   profiles: ProfileOption[];
   tags: string[];
+  locations?: string[];
   defaultVisibility: string;
   defaultOccurredAt: string;
   initial?: StoryInitial;
@@ -75,8 +79,6 @@ export function StoryComposer({
             className="w-full border-0 bg-transparent p-0 font-display text-[32px] leading-[1.15] outline-none placeholder:text-faint sm:text-[38px]"
             aria-label="标题（可选）"
           />
-          <p className="mt-1.5 text-[11px] text-faint">标题可以留空，之后再补。</p>
-
           <textarea
             name="body"
             defaultValue={initial?.body || ""}
@@ -99,7 +101,7 @@ export function StoryComposer({
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
             <span className="flex items-center gap-2 text-[13px] font-medium">
               <SlidersHorizontal size={15} className="text-muted" />
-              补充时间、人物、标签与隐私
+              更多选项
             </span>
             <span className="text-[11px] text-faint group-open:hidden">展开</span>
           </summary>
@@ -117,6 +119,7 @@ export function StoryComposer({
                 required
               />
             </div>
+            <LocationField defaultValue={initial?.location || ""} suggestions={locations} />
             <ProfilePicker options={profiles} initialIds={initial?.profileIds || []} />
             <TagPicker options={tags} initial={initial?.tags || []} />
             <VisibilityControl initial={visibility} onChange={setVisibility} />

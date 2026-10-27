@@ -208,10 +208,10 @@ export default async function TodayPage() {
       <header className="mb-8 flex items-start justify-between gap-4">
         <div>
           <p className="eyebrow">{context.household.name} · HomeHi</p>
-          <h1 className="font-display mt-2 text-[34px] leading-[1.05] tracking-tight sm:text-[42px]">
+          <h1 className="font-display mt-2 text-[38px] leading-[1.02] tracking-[-0.03em] sm:text-[50px]">
             {greeting(localHourNow(timezone))}，{firstName}
           </h1>
-          <p className="mt-2 text-[13px] text-muted">
+          <p className="mt-2 text-[12.5px] text-faint">
             {dayStart.setLocale("zh-CN").toFormat("yyyy年M月d日 cccc")}
             {todayItems.length > 0 ? ` · ${todayItems.length} 件事` : " · 没有安排"}
           </p>
@@ -237,14 +237,16 @@ export default async function TodayPage() {
       ) : null}
 
       {nextUp ? (
-        <section className="card relative mb-8 overflow-hidden p-5 sm:p-6">
+        <section className="card hero-warm card-organic relative mb-8 overflow-hidden p-5 sm:p-6">
           <div className="absolute inset-y-0 left-0 w-[3px] bg-accent" />
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="eyebrow flex items-center gap-1.5">
                 <Clock size={11} /> 接下来
               </p>
-              <h2 className="font-display mt-2 text-[27px] leading-tight sm:text-[30px]">{nextUp.title}</h2>
+              <h2 className="font-display mt-2 text-[28px] leading-tight tracking-[-0.02em] sm:text-[32px]">
+                {nextUp.title}
+              </h2>
               <p className="mt-1.5 text-[12.5px] text-muted">
                 {nextUp.isAllDay ? "全天" : nextUp.at ? formatTime(nextUp.at, timezone) : ""}
                 {nextUp.meta ? ` · ${nextUp.meta}` : ""}
@@ -252,7 +254,7 @@ export default async function TodayPage() {
             </div>
             <Link
               href={nextUp.href}
-              className="icon-btn icon-btn-plain shrink-0"
+              className="icon-btn shrink-0 border-transparent bg-accent text-accent-ink"
               aria-label="查看"
             >
               <ArrowRight size={17} />
@@ -263,7 +265,7 @@ export default async function TodayPage() {
 
       <section className="mb-9">
         <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="flex items-center gap-2 text-[14px] font-semibold">
+          <h2 className="flex items-center gap-2 font-display text-[19px] leading-tight">
             今天
             {overdueCount > 0 ? (
               <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-medium text-accent">
@@ -343,7 +345,7 @@ export default async function TodayPage() {
       {onThisDay.length > 0 ? (
         <section className="mb-9">
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="text-[14px] font-semibold">那年今天</h2>
+            <h2 className="font-display text-[19px] leading-tight">那年今天</h2>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {onThisDay.slice(0, 2).map((entry) => (
@@ -380,7 +382,7 @@ export default async function TodayPage() {
       {upcomingItems.length > 0 ? (
         <section className="mb-9">
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="text-[14px] font-semibold">接下来几天</h2>
+            <h2 className="font-display text-[19px] leading-tight">接下来几天</h2>
             <Link href="/calendar" className="text-[11.5px] text-faint transition hover:text-ink">
               全部
             </Link>
@@ -408,7 +410,7 @@ export default async function TodayPage() {
       {photos.length > 0 ? (
         <section className="mb-9">
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="text-[14px] font-semibold">最近的照片</h2>
+            <h2 className="font-display text-[19px] leading-tight">最近的照片</h2>
             <Link href="/photos" className="text-[11.5px] text-faint transition hover:text-ink">
               照片墙
             </Link>
@@ -436,7 +438,7 @@ export default async function TodayPage() {
 
       <section>
         <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-[14px] font-semibold">最近留下的</h2>
+          <h2 className="font-display text-[19px] leading-tight">最近留下的</h2>
           <Link href="/timeline" className="text-[11.5px] text-faint transition hover:text-ink">
             全部时光
           </Link>

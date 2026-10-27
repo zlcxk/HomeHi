@@ -1,4 +1,5 @@
 import { AppNavigation } from "@/components/AppNavigation";
+import { PullToSearch } from "@/components/PullToSearch";
 import { requireContext } from "@/lib/auth";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -11,6 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         userEmail={context.user.email}
         householdName={context.household.name}
       />
+      <PullToSearch />
       <div className="lg:pl-[254px]">
         <div className="mx-auto w-full max-w-[920px] px-4 pt-[max(22px,env(safe-area-inset-top))] sm:px-6 lg:px-10 lg:pt-10">
           <div className="page-pad">{children}</div>

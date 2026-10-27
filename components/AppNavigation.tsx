@@ -97,7 +97,7 @@ export function AppNavigation({
                 prefetch
                 className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition ${
                   isActive
-                    ? "bg-surface font-semibold text-ink shadow-[0_1px_0_var(--line)]"
+                    ? "bg-accent-soft/80 font-semibold text-ink"
                     : "text-muted hover:bg-raised hover:text-ink"
                 }`}
               >
@@ -218,7 +218,7 @@ export function AppNavigation({
                   { href: "/tasks", label: "待办", icon: ListTodo },
                   { href: "/profiles", label: "家人", icon: Users },
                   { href: "/assets", label: "物品", icon: Boxes },
-                  { href: "/search", label: "搜索", icon: Search },
+                  { href: "/timeline", label: "时光", icon: BookOpen },
                 ].map((item) => {
                   const Icon = item.icon;
                   return (

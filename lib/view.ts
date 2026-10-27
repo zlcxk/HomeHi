@@ -84,6 +84,44 @@ export async function assetOptions(context: AppContext): Promise<AssetOption[]> 
   }));
 }
 
+/** 从最近用过的地点里给几个建议，避免每次手动输入。 */
+export async function recentLocations(context: AppContext): Promise<string[]> {
+  const visibility = {
+    householdId: context.household.id,
+    OR: [{ visibility: "HOUSEHOLD" }, { createdBy: context.user.id }],
+  };
+  const [events, tasks, entries] = await Promise.all([
+    prisma.calendarEvent.findMany({
+      where: { ...visibility, location: { not: null } },
+      orderBy: { updatedAt: "desc" },
+      take: 30,
+      select: { location: true },
+    }),
+    prisma.task.findMany({
+      where: { ...visibility, location: { not: null } },
+      orderBy: { updatedAt: "desc" },
+      take: 30,
+      select: { location: true },
+    }),
+    prisma.entry.findMany({
+      where: { ...visibility, location: { not: null } },
+      orderBy: { occurredAt: "desc" },
+      take: 30,
+      select: { location: true },
+    }),
+  ]);
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const row of [...events, ...tasks, ...entries]) {
+    const value = row.location?.trim();
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    result.push(value);
+    if (result.length >= 6) break;
+  }
+  return result;
+}
+
 export async function householdTags(context: AppContext): Promise<string[]> {
   const tags = await prisma.tag.findMany({
     where: { householdId: context.household.id },

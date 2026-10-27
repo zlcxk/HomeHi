@@ -24,6 +24,7 @@ export function SettingsNav() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch
               className={`rounded-xl px-3.5 py-1.5 text-[12.5px] transition ${
                 active ? "bg-ink text-paper" : "text-muted hover:bg-raised"
               }`}

@@ -1,5 +1,5 @@
 import { requireContext } from "@/lib/auth";
-import { assetOptions, profileOptions, memberOptions } from "@/lib/view";
+import { assetOptions, profileOptions, memberOptions, recentLocations } from "@/lib/view";
 import { smtpStatus } from "@/lib/mailer";
 import { TaskComposer } from "@/components/compose/TaskComposer";
 
@@ -19,10 +19,11 @@ export default async function ComposeTaskPage({
 }) {
   const context = await requireContext();
   const params = await searchParams;
-  const [profiles, members, assets] = await Promise.all([
+  const [profiles, members, assets, locations] = await Promise.all([
     profileOptions(context),
     memberOptions(context),
     assetOptions(context),
+    recentLocations(context),
   ]);
 
   const dueParam = (params.due || "").trim();
@@ -40,6 +41,7 @@ export default async function ComposeTaskPage({
       profiles={profiles}
       members={members}
       assets={assets}
+      locations={locations}
       defaultVisibility={context.user.defaultVisibility}
       smtpConfigured={smtpStatus().configured}
       defaultTitle={(params.title || "").slice(0, 160)}

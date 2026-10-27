@@ -138,6 +138,7 @@ model Entry {
   entryType      String // MOMENT | STORY | EVENT_RECAP | GENERAL
   title          String?
   body           String?
+  location       String?
   occurredAt     DateTime
   coverMediaId   String?
   visibility     String    @default("HOUSEHOLD")
@@ -322,6 +323,7 @@ model Task {
   assigneeUserId     String?
   title              String
   description        String?
+  location           String?
   dueAt              DateTime?
   priority           String    @default("NORMAL") // NORMAL | IMPORTANT
   status             String    @default("TODO") // TODO | DONE | CANCELLED

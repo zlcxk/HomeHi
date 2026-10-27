@@ -1,12 +1,12 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { MapPin } from "lucide-react";
 import { saveEventAction } from "@/app/actions/events";
 import { ComposeHeader } from "@/components/compose/ComposeHeader";
 import { SaveBar } from "@/components/compose/SaveBar";
 import { ProfilePicker, type ProfileOption } from "@/components/pickers/ProfilePicker";
 import { AssetPicker } from "@/components/pickers/AssetPicker";
+import { LocationField } from "@/components/pickers/LocationField";
 import type { AssetOption } from "@/lib/view";
 import { RecurrencePicker } from "@/components/pickers/RecurrencePicker";
 import { ReminderPicker } from "@/components/pickers/ReminderPicker";
@@ -37,6 +37,7 @@ export type EventInitial = {
 export function EventComposer({
   profiles,
   assets = [],
+  locations = [],
   defaultVisibility,
   smtpConfigured,
   defaultStart,
@@ -45,6 +46,7 @@ export function EventComposer({
 }: {
   profiles: ProfileOption[];
   assets?: AssetOption[];
+  locations?: string[];
   defaultVisibility: string;
   smtpConfigured: boolean;
   defaultStart: string;
@@ -150,20 +152,7 @@ export function EventComposer({
           </div>
 
           <div className="hairline mt-4 pt-4">
-            <label className="label" htmlFor="event-location">
-              地点 <span className="font-normal text-faint">可选</span>
-            </label>
-            <div className="relative">
-              <MapPin size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
-              <input
-                id="event-location"
-                name="location"
-                defaultValue={initial?.location || ""}
-                placeholder="在哪里"
-                maxLength={200}
-                className="field pl-9"
-              />
-            </div>
+            <LocationField defaultValue={initial?.location || ""} suggestions={locations} />
           </div>
 
           <div className="hairline mt-4 pt-4">

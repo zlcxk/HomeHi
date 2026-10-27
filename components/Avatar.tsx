@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { avatarTone, initials } from "@/lib/format";
 
 export function Avatar({
@@ -14,13 +17,15 @@ export function Avatar({
   ring?: boolean;
 }) {
   const tone = avatarTone(name);
+  const [failed, setFailed] = useState(false);
   const style = { width: size, height: size, fontSize: Math.max(11, Math.round(size * 0.34)) };
-  if (src) {
+  if (src && !failed) {
     return (
       <img
         src={src}
         alt={name}
         loading="lazy"
+        onError={() => setFailed(true)}
         className={`shrink-0 rounded-full object-cover ${ring ? "avatar-ring" : ""} ${className}`}
         style={style}
       />

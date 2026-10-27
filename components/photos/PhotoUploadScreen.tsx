@@ -27,7 +27,7 @@ export function PhotoUploadScreen({ defaultVisibility }: { defaultVisibility: st
           </button>
           <div>
             <p className="eyebrow">Upload</p>
-            <h1 className="font-display mt-1 text-[30px] leading-none">上传照片</h1>
+            <h1 className="font-display mt-1 text-[30px] leading-none">上传照片和视频</h1>
           </div>
         </div>
         <button
@@ -48,7 +48,6 @@ export function PhotoUploadScreen({ defaultVisibility }: { defaultVisibility: st
         visibility={visibility}
         max={40}
         onBusyChange={setBusy}
-        hint="可一次选择多张"
       />
     </div>
   );

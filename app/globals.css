@@ -15,6 +15,10 @@
   --color-sage: var(--sage);
   --color-sage-soft: var(--sage-soft);
   --color-gold: var(--gold);
+  --color-lime: var(--lime);
+  --color-lime-soft: var(--lime-soft);
+  --color-blue: var(--blue);
+  --color-blue-soft: var(--blue-soft);
   --color-danger: var(--danger);
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang SC",
     "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
@@ -24,44 +28,60 @@
 }
 
 :root {
-  --paper: #f5f2ea;
+  --paper: #f7f1e7;
   --surface: #fffdf8;
-  --raised: #ece7db;
-  --ink: #1c1a16;
-  --muted: #6e675c;
-  --faint: #9b9385;
-  --line: #e4ded1;
-  --line-strong: #d3cab9;
-  --accent: #d4572f;
-  --accent-ink: #fff8f2;
-  --accent-soft: #f8e7de;
+  --raised: #efe7d8;
+  --ink: #211d17;
+  --muted: #6f6759;
+  --faint: #9c9282;
+  --line: #e8dfcf;
+  --line-strong: #d8ccb7;
+  --accent: #e75d31;
+  --accent-ink: #fff9f3;
+  --accent-soft: #fbe6d9;
   --sage: #4f6b57;
   --sage-soft: #e6ede4;
   --gold: #a67c3d;
+  --lime: #92a84b;
+  --lime-soft: #eef3d8;
+  --blue: #4a80b8;
+  --blue-soft: #e2edf8;
   --danger: #b5483a;
-  --shadow-soft: 0 24px 60px -32px rgba(45, 36, 22, 0.45);
-  --shadow-lift: 0 16px 36px -20px rgba(45, 36, 22, 0.4);
+  --accent-grad: linear-gradient(135deg, #ff925f 0%, #e75d31 55%, #d94a2b 100%);
+  --lime-grad: linear-gradient(135deg, #d7e79b 0%, #a9c25e 100%);
+  --blue-grad: linear-gradient(135deg, #a9cdf0 0%, #5d92c8 100%);
+  --shadow-soft: 0 28px 64px -36px rgba(58, 42, 24, 0.42);
+  --shadow-lift: 0 18px 38px -22px rgba(58, 42, 24, 0.36);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.65) inset, 0 20px 44px -38px rgba(58, 42, 24, 0.5);
   color-scheme: light;
 }
 
 [data-theme="dark"] {
-  --paper: #131210;
-  --surface: #1b1916;
-  --raised: #26221c;
-  --ink: #f3eee4;
-  --muted: #aaa297;
-  --faint: #7b7468;
-  --line: #2f2b24;
-  --line-strong: #413b31;
-  --accent: #ff7a4d;
-  --accent-ink: #1b120e;
-  --accent-soft: #35231b;
+  --paper: #141210;
+  --surface: #1c1916;
+  --raised: #28231c;
+  --ink: #f4eee3;
+  --muted: #aca395;
+  --faint: #7d7567;
+  --line: #322c24;
+  --line-strong: #453d31;
+  --accent: #ff7f52;
+  --accent-ink: #1d120d;
+  --accent-soft: #3a251b;
   --sage: #9db7a2;
   --sage-soft: #212c23;
   --gold: #d4a85e;
+  --lime: #b3c875;
+  --lime-soft: #2a2f1e;
+  --blue: #8fb6de;
+  --blue-soft: #1e2833;
   --danger: #ef8a7c;
-  --shadow-soft: 0 24px 60px -28px rgba(0, 0, 0, 0.75);
-  --shadow-lift: 0 16px 36px -18px rgba(0, 0, 0, 0.65);
+  --accent-grad: linear-gradient(135deg, #ff9a6c 0%, #ff7f52 60%, #e6613a 100%);
+  --lime-grad: linear-gradient(135deg, #9bae5f 0%, #738a3f 100%);
+  --blue-grad: linear-gradient(135deg, #7aa6d2 0%, #4e7ca6 100%);
+  --shadow-soft: 0 28px 64px -30px rgba(0, 0, 0, 0.78);
+  --shadow-lift: 0 18px 38px -18px rgba(0, 0, 0, 0.68);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 20px 44px -32px rgba(0, 0, 0, 0.7);
   color-scheme: dark;
 }
 
@@ -92,6 +112,11 @@ body {
   min-height: 100dvh;
   margin: 0;
   background-color: var(--paper);
+  background-image:
+    radial-gradient(110% 70% at 4% -8%, color-mix(in srgb, var(--accent) 13%, transparent) 0%, transparent 58%),
+    radial-gradient(80% 55% at 102% 2%, color-mix(in srgb, var(--lime) 18%, transparent) 0%, transparent 62%),
+    radial-gradient(95% 60% at 88% 104%, color-mix(in srgb, var(--blue) 11%, transparent) 0%, transparent 58%);
+  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 15px;
@@ -217,8 +242,10 @@ video {
 }
 
 .btn-primary {
-  background: var(--ink);
-  color: var(--paper);
+  background-color: var(--accent);
+  background-image: var(--accent-grad);
+  color: var(--accent-ink);
+  box-shadow: 0 12px 26px -16px color-mix(in srgb, var(--accent) 75%, transparent);
 }
 
 .btn-accent {
@@ -378,13 +405,15 @@ select.field {
 }
 
 .chip-active {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--paper);
+  background-color: var(--accent);
+  background-image: var(--accent-grad);
+  border-color: transparent;
+  color: var(--accent-ink);
+  box-shadow: 0 8px 18px -12px color-mix(in srgb, var(--accent) 80%, transparent);
 }
 
 .chip-active:hover {
-  color: var(--paper);
+  color: var(--accent-ink);
 }
 
 .checkbox {
@@ -398,14 +427,34 @@ select.field {
 
 .card {
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--line) 92%, transparent);
   border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 .card-flat {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 1.15rem;
+}
+
+/* 打破方正卡片的规整感，用在重点区块 */
+.card-organic {
+  border-radius: 2rem 2rem 2rem 0.95rem;
+}
+
+.hero-warm {
+  background-color: var(--surface);
+  background-image:
+    radial-gradient(120% 150% at 0% 0%, color-mix(in srgb, var(--accent) 20%, transparent) 0%, transparent 52%),
+    radial-gradient(100% 120% at 100% 100%, color-mix(in srgb, var(--lime) 26%, transparent) 0%, transparent 58%);
+}
+
+.hero-cool {
+  background-color: var(--surface);
+  background-image:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--blue) 18%, transparent) 0%, transparent 55%),
+    radial-gradient(120% 120% at 100% 100%, color-mix(in srgb, var(--lime) 20%, transparent) 0%, transparent 60%);
 }
 
 .raised {
@@ -417,10 +466,10 @@ select.field {
 }
 
 .glassbar {
-  background: color-mix(in srgb, var(--paper) 82%, transparent);
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
   box-shadow: var(--shadow-lift);
 }
 
@@ -586,10 +635,10 @@ select.field {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   align-items: center;
-  width: calc(100% - 22px);
-  max-width: 460px;
+  width: calc(100% - 20px);
+  max-width: 450px;
   height: 64px;
-  padding: 0 6px;
+  padding: 5px 6px;
   transform: translateX(-50%);
   border-radius: 999px;
 }
@@ -601,16 +650,22 @@ select.field {
   justify-content: center;
   gap: 3px;
   height: 54px;
+  margin: 0 2px;
   border-radius: 999px;
   color: var(--faint);
   font-size: 10.5px;
   font-weight: 550;
   letter-spacing: 0.02em;
-  transition: color 0.18s, background 0.18s;
+  transition: color 0.18s, background 0.18s, transform 0.18s;
 }
 
 .tabbar-item[data-active="true"] {
-  color: var(--ink);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent-soft) 82%, transparent);
+}
+
+.tabbar-item:active {
+  transform: scale(0.94);
 }
 
 .tabbar-create {
@@ -618,13 +673,14 @@ select.field {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
-  height: 54px;
-  margin-top: -22px;
+  width: 56px;
+  height: 56px;
+  margin-top: -20px;
   border-radius: 999px;
-  background: var(--accent);
+  background-color: var(--accent);
+  background-image: var(--accent-grad);
   color: var(--accent-ink);
-  box-shadow: 0 12px 28px -10px color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 16px 30px -10px color-mix(in srgb, var(--accent) 65%, transparent);
   transition: transform 0.18s;
 }
 

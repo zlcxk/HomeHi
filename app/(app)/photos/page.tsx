@@ -124,7 +124,7 @@ export default async function PhotosPage({
       {media.length === 0 ? (
         <EmptyState
           icon={<Camera strokeWidth={1.7} />}
-          title={filtered ? "这一类还没有照片" : "照片墙还空着"}
+          title={filtered ? (onlyVideos ? "还没有视频" : "还没有照片") : "照片墙还空着"}
           description={filtered ? "换个筛选看看。" : "从手机相册选几张，或者现在拍一张。"}
           action={
             <Link href="/compose/moment" className="btn btn-primary btn-sm">

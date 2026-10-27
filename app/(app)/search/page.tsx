@@ -133,7 +133,7 @@ export default async function SearchPage({
     prisma.entry.findMany({
       where: {
         ...publishedEntryWhere(viewer),
-        OR: [{ title: contains }, { body: contains }],
+        OR: [{ title: contains }, { body: contains }, { location: contains }],
       },
       include: entryCardInclude,
       orderBy: { occurredAt: "desc" },
@@ -163,7 +163,7 @@ export default async function SearchPage({
     prisma.task.findMany({
       where: {
         ...taskWhere(viewer),
-        AND: [{ OR: [{ title: contains }, { description: contains }] }],
+        AND: [{ OR: [{ title: contains }, { description: contains }, { location: contains }] }],
       },
       orderBy: [{ status: "asc" }, { dueAt: "desc" }],
       take: 8,

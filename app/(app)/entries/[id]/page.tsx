@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Archive, ArrowLeft, Lock, Pencil, Play, RotateCcw, Send, Tag, Trash2, Users } from "lucide-react";
+import { Archive, ArrowLeft, Lock, MapPin, Pencil, Play, RotateCcw, Send, Tag, Trash2, Users } from "lucide-react";
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { canViewEntry } from "@/lib/access";
 import { formatDateFull, formatDayLabel, formatTime } from "@/lib/dates";
 import { ENTRY_TYPE_LABEL } from "@/lib/constants";
 import { deleteEntryAction, setEntryStatusAction } from "@/app/actions/entries";
+import { Avatar } from "@/components/Avatar";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { SubmitButton } from "@/components/SubmitButton";
 
@@ -22,7 +23,7 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ id
       media: { orderBy: { sortOrder: "asc" }, include: { media: true } },
       profiles: { include: { profile: { select: { id: true, name: true, profileType: true } } } },
       tags: { include: { tag: true } },
-      creator: { select: { displayName: true } },
+      creator: { select: { displayName: true, avatarMediaId: true } },
     },
   });
 
@@ -101,9 +102,28 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ id
           </h1>
         ) : null}
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-faint">
-          <span>{entry.creator.displayName} 记录</span>
+          <span className="inline-flex items-center gap-1.5">
+            <Avatar
+              name={entry.creator.displayName}
+              src={
+                entry.creator.avatarMediaId
+                  ? `/api/media/${entry.creator.avatarMediaId}/thumb`
+                  : null
+              }
+              size={20}
+            />
+            {entry.creator.displayName} 记录
+          </span>
           <span className="h-1 w-1 rounded-full bg-line-strong" />
           <span>{formatDayLabel(entry.occurredAt, timezone)}</span>
+          {entry.location ? (
+            <>
+              <span className="h-1 w-1 rounded-full bg-line-strong" />
+              <span className="inline-flex items-center gap-1">
+                <MapPin size={10.5} /> {entry.location}
+              </span>
+            </>
+          ) : null}
           {entry.visibility === "PRIVATE" ? (
             <>
               <span className="h-1 w-1 rounded-full bg-line-strong" />

@@ -47,6 +47,7 @@ export async function saveEntryAction(
   const parsed = entrySchema.safeParse({
     title: formString(formData, "title"),
     body: formString(formData, "body"),
+    location: formString(formData, "location"),
     entryType: formString(formData, "entryType") || "GENERAL",
     occurredAt: formString(formData, "occurredAt"),
     visibility: formString(formData, "visibility") || context.user.defaultVisibility,
@@ -110,6 +111,7 @@ export async function saveEntryAction(
       entryType: data.entryType,
       title: data.title || null,
       body: data.body || null,
+      location: data.location.trim() || null,
       occurredAt,
       coverMediaId: data.mediaIds[0] || null,
       visibility: data.visibility,

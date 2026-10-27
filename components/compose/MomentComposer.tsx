@@ -7,6 +7,7 @@ import { ComposeHeader } from "@/components/compose/ComposeHeader";
 import { SaveBar } from "@/components/compose/SaveBar";
 import { MediaUploader } from "@/components/MediaUploader";
 import { ProfilePicker, type ProfileOption } from "@/components/pickers/ProfilePicker";
+import { LocationField } from "@/components/pickers/LocationField";
 import { TagPicker } from "@/components/pickers/TagPicker";
 import { VisibilityControl } from "@/components/pickers/VisibilityControl";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -18,11 +19,13 @@ const initialState: ActionState = {};
 export function MomentComposer({
   profiles,
   tags,
+  locations = [],
   defaultVisibility,
   defaultOccurredAt,
 }: {
   profiles: ProfileOption[];
   tags: string[];
+  locations?: string[];
   defaultVisibility: string;
   defaultOccurredAt: string;
 }) {
@@ -46,7 +49,6 @@ export function MomentComposer({
             visibility={visibility}
             max={12}
             onBusyChange={setBusy}
-            hint="拍照或从相册选择"
           />
         </div>
 
@@ -61,7 +63,7 @@ export function MomentComposer({
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
             <span className="flex items-center gap-2 text-[13px] font-medium">
               <SlidersHorizontal size={15} className="text-muted" />
-              补充时间、人物、标签与隐私
+              更多选项
             </span>
             <span className="text-[11px] text-faint group-open:hidden">展开</span>
           </summary>
@@ -79,6 +81,7 @@ export function MomentComposer({
                 required
               />
             </div>
+            <LocationField suggestions={locations} />
             <ProfilePicker options={profiles} />
             <TagPicker options={tags} />
             <VisibilityControl initial={visibility} onChange={setVisibility} />
@@ -91,7 +94,7 @@ export function MomentComposer({
 
         <SaveBar>
           <SubmitButton className="btn btn-primary btn-lg w-full sm:w-auto" disabled={busy}>
-            {busy ? "照片上传中…" : "记下这一刻"}
+            {busy ? "上传中…" : "记下这一刻"}
           </SubmitButton>
         </SaveBar>
       </form>

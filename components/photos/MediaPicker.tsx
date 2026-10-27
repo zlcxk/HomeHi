@@ -37,8 +37,8 @@ export function MediaPicker({
 
       {items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line-strong px-5 py-10 text-center">
-          <p className="text-[13.5px] font-medium">没有可添加的照片</p>
-          <p className="mt-1 text-[12px] text-muted">先记录一些照片，再回来放进相册。</p>
+          <p className="text-[13.5px] font-medium">没有可添加的内容</p>
+          <p className="mt-1 text-[12px] text-muted">先记录一些照片或视频，再回来放进相册。</p>
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">

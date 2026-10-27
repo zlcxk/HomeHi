@@ -25,9 +25,9 @@ export function PageHeader({
         ) : null}
         <div className="min-w-0">
           {eyebrow ? <p className="eyebrow mb-1.5">{eyebrow}</p> : null}
-          <h1 className="font-display text-[30px] leading-[1.08] tracking-tight sm:text-[38px]">{title}</h1>
+          <h1 className="font-display text-[34px] leading-[1.02] tracking-[-0.025em] sm:text-[46px]">{title}</h1>
           {description ? (
-            <p className="mt-2 max-w-lg text-[12.5px] leading-relaxed text-muted sm:text-[13.5px]">
+            <p className="mt-2 max-w-lg text-[12.5px] leading-relaxed text-faint sm:text-[13.5px]">
               {description}
             </p>
           ) : null}

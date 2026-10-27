@@ -402,7 +402,9 @@ export function MediaUploader({
           <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-raised text-muted">
             <ImagePlus size={19} strokeWidth={1.7} />
           </div>
-          <p className="text-[13.5px] font-medium">{single ? "选择一张照片" : "添加照片"}</p>
+          <p className="text-[13.5px] font-medium">
+            {single ? "选择一张照片" : "添加照片或视频"}
+          </p>
           {hint ? (
             <p className="mt-1 mb-4 text-[11.5px] leading-relaxed text-faint">{hint}</p>
           ) : (

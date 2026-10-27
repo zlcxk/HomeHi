@@ -3,7 +3,7 @@ import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { canViewEntry } from "@/lib/access";
 import { toLocalInput } from "@/lib/dates";
-import { profileOptions, householdTags } from "@/lib/view";
+import { profileOptions, householdTags, recentLocations } from "@/lib/view";
 import { StoryComposer, type StoryInitial } from "@/components/compose/StoryComposer";
 
 export default async function EditEntryPage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,7 +22,11 @@ export default async function EditEntryPage({ params }: { params: Promise<{ id: 
 
   if (!entry || entry.status === "DELETED" || !canViewEntry(entry, viewer)) notFound();
 
-  const [profiles, tags] = await Promise.all([profileOptions(context), householdTags(context)]);
+  const [profiles, tags, locations] = await Promise.all([
+    profileOptions(context),
+    householdTags(context),
+    recentLocations(context),
+  ]);
   const media = entry.media
     .filter((link) => link.media.status === "ACTIVE")
     .filter(
@@ -44,6 +48,7 @@ export default async function EditEntryPage({ params }: { params: Promise<{ id: 
     entryType: entry.entryType,
     title: entry.title || "",
     body: entry.body || "",
+    location: entry.location || "",
     occurredAt: toLocalInput(entry.occurredAt, context.household.timezone),
     visibility: entry.visibility,
     status: entry.status,
@@ -56,6 +61,7 @@ export default async function EditEntryPage({ params }: { params: Promise<{ id: 
     <StoryComposer
       profiles={profiles}
       tags={tags}
+      locations={locations}
       defaultVisibility={context.user.defaultVisibility}
       defaultOccurredAt={initial.occurredAt}
       initial={initial}

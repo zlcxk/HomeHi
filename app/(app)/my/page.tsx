@@ -78,16 +78,19 @@ export default async function MyPage() {
 
       <Link
         href={profile ? `/profiles/${profile.id}` : "/profiles"}
-        className="card mb-6 flex items-center gap-4 p-5 transition hover:border-line-strong"
+        prefetch
+        className="card hero-warm card-organic mb-6 flex items-center gap-4 p-5 transition hover:border-line-strong"
       >
         <Avatar
           name={context.user.displayName}
           src={avatar ? `/api/media/${avatar.id}/thumb` : null}
-          size={62}
+          size={64}
           ring
         />
         <div className="min-w-0 flex-1">
-          <p className="font-display text-[25px] leading-tight">{context.user.displayName}</p>
+          <p className="font-display text-[29px] leading-none tracking-[-0.025em]">
+            {context.user.displayName}
+          </p>
           <p className="mt-0.5 truncate text-[11px] text-faint">{context.user.email}</p>
           <p className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted">
             <ShieldCheck size={10.5} className="text-sage" />
@@ -105,7 +108,7 @@ export default async function MyPage() {
         ].map((stat) => {
           const Icon = stat.icon;
           return (
-            <Link key={stat.label} href={stat.href} className="card px-3.5 py-3.5 transition hover:border-line-strong">
+            <Link key={stat.label} href={stat.href} prefetch className="card px-3.5 py-3.5 transition hover:border-line-strong">
               <Icon size={14} className="text-faint" />
               <p className="display-number mt-2 text-[30px]">{stat.value}</p>
               <p className="mt-1 text-[10.5px] text-faint">{stat.label}</p>
@@ -121,6 +124,7 @@ export default async function MyPage() {
             <Link
               key={link.href}
               href={link.href}
+              prefetch
               className="card flex items-center gap-3 px-4 py-3.5 transition hover:border-line-strong"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-raised text-muted">

@@ -17,10 +17,12 @@ import {
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { eventWhere } from "@/lib/access";
-import { formatTime, monthGrid, monthLabel, dayKey } from "@/lib/dates";
+import { formatTime, monthGrid, dayKey } from "@/lib/dates";
 import { occurrencesBetween, recurrenceSummary } from "@/lib/recurrence";
 import { holidayMap } from "@/lib/holidays";
+import { lunarDayInfo, type LunarDayInfo } from "@/lib/lunar";
 import { parseStringArray } from "@/lib/json";
+import { CalendarSwipe } from "@/components/calendar/CalendarSwipe";
 import { cancelEventAction, deleteEventAction } from "@/app/actions/events";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -43,9 +45,7 @@ export default async function CalendarPage({
   const selectedDay = selected.isValid ? selected : today;
 
   const monthParam = params.month ? DateTime.fromFormat(params.month, "yyyy-MM", { zone: timezone }) : null;
-  const monthBase = monthParam?.isValid
-    ? monthParam
-    : selectedDay.startOf("month");
+  const monthBase = monthParam?.isValid ? monthParam : selectedDay.startOf("month");
   const grid = monthGrid(monthBase.year, monthBase.month, timezone);
   const gridStart = grid[0].startOf("day");
   const gridEnd = grid[grid.length - 1].endOf("day");
@@ -83,6 +83,11 @@ export default async function CalendarPage({
     holidayMap([gridStart.year, gridEnd.year]),
   ]);
 
+  const lunarInfos = new Map<string, LunarDayInfo>();
+  for (const day of grid) {
+    lunarInfos.set(day.toFormat("yyyy-MM-dd"), lunarDayInfo(day.year, day.month, day.day));
+  }
+
   const assetNames = new Map(assets.map((asset) => [asset.id, asset.name]));
 
   const byDay = new Map<string, { event: (typeof events)[number]; occurrence: Date }[]>();
@@ -109,6 +114,7 @@ export default async function CalendarPage({
 
   const selectedKey = selectedDay.toFormat("yyyy-MM-dd");
   const selectedHoliday = holidays.get(selectedKey);
+  const selectedLunar = lunarDayInfo(selectedDay.year, selectedDay.month, selectedDay.day);
   const dayItems = (byDay.get(selectedKey) || []).sort(
     (a, b) => a.occurrence.getTime() - b.occurrence.getTime(),
   );
@@ -120,137 +126,175 @@ export default async function CalendarPage({
 
   const prevMonth = monthBase.minus({ months: 1 });
   const nextMonth = monthBase.plus({ months: 1 });
+  const prevHref = `/calendar?month=${prevMonth.toFormat("yyyy-MM")}&date=${selectedDay
+    .set({ year: prevMonth.year, month: prevMonth.month })
+    .toFormat("yyyy-MM-dd")}`;
+  const nextHref = `/calendar?month=${nextMonth.toFormat("yyyy-MM")}&date=${selectedDay
+    .set({ year: nextMonth.year, month: nextMonth.month })
+    .toFormat("yyyy-MM-dd")}`;
   const selectedInMonth = selectedDay.hasSame(monthBase, "month");
+  const selectedLabel = selectedHoliday
+    ? `${selectedHoliday.name}${selectedHoliday.isOffDay ? "" : " · 调休上班"}`
+    : selectedLunar.label
+      ? selectedLunar.label
+      : selectedLunar.dayText;
 
   return (
     <div>
-      <header className="mb-6 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="eyebrow">Calendar</p>
-          <h1 className="font-display mt-1.5 whitespace-nowrap text-[28px] leading-none tracking-tight sm:text-[40px]">
-            {monthLabel(monthBase.year, monthBase.month)}
-          </h1>
-          <p className="mt-1.5 text-[12px] text-muted">
-            {selectedDay.setLocale("zh-CN").toFormat("M月d日 cccc")}
-            {dayItems.length > 0 ? ` · ${dayItems.length} 件日程` : " · 没有日程"}
-          </p>
+      <header className="mb-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="eyebrow">Calendar</p>
+            <h1 className="font-display mt-1.5 whitespace-nowrap text-[34px] leading-none tracking-tight sm:text-[44px]">
+              {monthBase.year}年 {monthBase.month}月
+            </h1>
+          </div>
+          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+            <Link href={prevHref} className="icon-btn icon-btn-plain" aria-label="上个月">
+              <ArrowLeft size={17} />
+            </Link>
+            <Link href="/calendar" className="chip px-2.5">
+              今天
+            </Link>
+            <Link href={nextHref} className="icon-btn icon-btn-plain" aria-label="下个月">
+              <ArrowRight size={17} />
+            </Link>
+            <Link href="/compose/event" className="btn btn-primary btn-sm ml-1">
+              <Plus size={14} /> 日程
+            </Link>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
-          <Link
-            href={`/calendar?month=${prevMonth.toFormat("yyyy-MM")}`}
-            className="icon-btn icon-btn-plain"
-            aria-label="上个月"
-          >
-            <ArrowLeft size={17} />
-          </Link>
-          <Link
-            href={`/calendar?month=${nextMonth.toFormat("yyyy-MM")}`}
-            className="icon-btn icon-btn-plain"
-            aria-label="下个月"
-          >
-            <ArrowRight size={17} />
-          </Link>
-          <Link href="/compose/event" className="btn btn-primary btn-sm ml-1">
-            <Plus size={14} /> 日程
-          </Link>
-        </div>
+        <p className="mt-2 text-[12px] text-muted">
+          {selectedDay.setLocale("zh-CN").toFormat("M月d日 cccc")}
+          <span className="mx-1.5 text-line-strong">·</span>
+          {selectedLabel}
+          <span className="mx-1.5 text-line-strong">·</span>
+          {dayItems.length > 0 ? `${dayItems.length} 件日程` : "没有日程"}
+        </p>
       </header>
 
-      <div className="card mb-6 overflow-hidden p-2 sm:p-3">
-        <div className="grid grid-cols-7 pb-1">
-          {WEEKDAYS.map((label) => (
-            <span key={label} className="py-1.5 text-center text-[10.5px] text-faint">
-              {label}
-            </span>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {grid.map((day) => {
-            const key = day.toFormat("yyyy-MM-dd");
-            const inMonth = day.hasSame(monthBase, "month");
-            const isToday = day.hasSame(today, "day");
-            const isSelected = key === selectedKey;
-            const items = byDay.get(key) || [];
-            const holiday = holidays.get(key);
-            return (
-              <Link
-                key={key}
-                href={`/calendar?month=${monthBase.toFormat("yyyy-MM")}&date=${key}`}
-                className={`relative flex min-h-[58px] flex-col rounded-xl px-1 pb-1 pt-1.5 transition sm:min-h-[82px] sm:px-1.5 ${
-                  isSelected
-                    ? "bg-raised/80 ring-1 ring-line-strong"
-                    : isToday
-                      ? "bg-accent-soft/70 text-ink"
-                      : inMonth
-                        ? "hover:bg-raised"
-                        : "text-faint/70 hover:bg-raised/60"
+      <CalendarSwipe prevHref={prevHref} nextHref={nextHref}>
+        <div className="card mb-6 overflow-hidden p-2 sm:p-3">
+          <div className="grid grid-cols-7 pb-1">
+            {WEEKDAYS.map((label, index) => (
+              <span
+                key={label}
+                className={`py-1.5 text-center text-[10.5px] ${
+                  index >= 5 ? "text-accent/75" : "text-faint"
                 }`}
-                aria-current={isSelected ? "date" : undefined}
               >
-                <span
-                  className={`flex h-[21px] w-[21px] items-center justify-center self-start rounded-full text-[11.5px] tabular-nums leading-none ${
-                    isSelected
-                      ? "bg-ink font-semibold text-paper"
-                      : isToday
-                        ? "font-semibold text-accent"
-                        : ""
-                  }`}
-                >
-                  {day.day}
-                </span>
-                {holiday ? (
-                  <span
-                    className={`mt-0.5 block w-full truncate text-[8px] leading-none sm:text-[9px] ${
-                      holiday.isOffDay ? "text-accent" : "text-faint"
-                    }`}
-                    title={`${holiday.name}${holiday.isOffDay ? "" : "（调休上班）"}`}
-                  >
-                    {holiday.isOffDay ? holiday.name : "班"}
-                  </span>
-                ) : null}
-                <span className="mt-1 hidden flex-1 flex-col gap-0.5 overflow-hidden sm:flex">
-                  {items.slice(0, 2).map(({ event, occurrence }, index) => (
-                    <span
-                      key={`${event.id}-${index}`}
-                      className="truncate text-[9.5px] leading-tight text-muted"
-                    >
-                      {event.isAllDay ? "" : `${formatTime(occurrence, timezone)} `}
-                      {event.title}
-                    </span>
-                  ))}
-                  {items.length > 2 ? (
-                    <span className="text-[8.5px] text-faint">+{items.length - 2}</span>
-                  ) : null}
-                </span>
-                <span className="mt-auto flex gap-0.5 pt-1 sm:hidden">
-                  {items.slice(0, 3).map(({ event }, index) => (
-                    <span key={`${event.id}-${index}`} className="h-1 w-1 rounded-full bg-accent" />
-                  ))}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
+                {label}
+              </span>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {grid.map((day) => {
+              const key = day.toFormat("yyyy-MM-dd");
+              const inMonth = day.hasSame(monthBase, "month");
+              const isToday = day.hasSame(today, "day");
+              const isSelected = key === selectedKey;
+              const items = byDay.get(key) || [];
+              const holiday = holidays.get(key);
+              const info = lunarInfos.get(key);
+              const workday = Boolean(holiday && !holiday.isOffDay);
+              const offDay = Boolean(holiday?.isOffDay);
 
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-[14px] font-semibold">
-          {selectedInMonth ? selectedDay.setLocale("zh-CN").toFormat("M月d日") : selectedDay.setLocale("zh-CN").toFormat("yyyy年M月d日")}
-          <span className="ml-2 text-[11px] font-normal text-faint">
-            {selectedDay.setLocale("zh-CN").toFormat("cccc")}
-          </span>
-        </h2>
-        <span className="flex items-center gap-2">
+              const label = holiday
+                ? holiday.isOffDay
+                  ? holiday.name
+                  : "班"
+                : info?.label || info?.dayText || "";
+
+              return (
+                <Link
+                  key={key}
+                  href={`/calendar?month=${(inMonth ? monthBase : day).toFormat("yyyy-MM")}&date=${key}`}
+                  className={`relative flex min-h-[64px] flex-col rounded-2xl px-1 pb-1 pt-1.5 transition sm:min-h-[90px] sm:px-1.5 ${
+                    isSelected
+                      ? "bg-ink text-paper shadow-[0_10px_24px_-14px_rgba(0,0,0,0.55)]"
+                      : isToday
+                        ? "bg-accent-soft ring-1 ring-accent/25"
+                        : inMonth
+                          ? "hover:bg-raised"
+                          : "text-faint/60 hover:bg-raised/60"
+                  }`}
+                  aria-current={isSelected ? "date" : undefined}
+                >
+                  <span
+                    className={`flex h-[23px] w-[23px] items-center justify-center self-start rounded-full text-[12px] font-semibold tabular-nums leading-none ${
+                      isSelected ? "text-paper" : isToday ? "text-accent" : ""
+                    }`}
+                  >
+                    {day.day}
+                  </span>
+                  <span
+                    className={`mt-0.5 block w-full truncate text-[8.5px] leading-none sm:text-[9.5px] ${
+                      isSelected
+                        ? "text-paper/60"
+                        : workday
+                          ? "text-faint"
+                          : offDay || info?.label
+                            ? "text-accent"
+                            : "text-faint"
+                    }`}
+                    title={label}
+                  >
+                    {label}
+                  </span>
+                  <span
+                    className={`mt-1 hidden flex-1 flex-col gap-0.5 overflow-hidden sm:flex ${
+                      isSelected ? "text-paper/70" : "text-muted"
+                    }`}
+                  >
+                    {items.slice(0, 2).map(({ event, occurrence }, index) => (
+                      <span
+                        key={`${event.id}-${index}`}
+                        className="truncate text-[9.5px] leading-tight"
+                      >
+                        {event.isAllDay ? "" : `${formatTime(occurrence, timezone)} `}
+                        {event.title}
+                      </span>
+                    ))}
+                    {items.length > 2 ? (
+                      <span className={`text-[8.5px] ${isSelected ? "text-paper/50" : "text-faint"}`}>
+                        +{items.length - 2}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="mt-auto flex gap-0.5 pt-1 sm:hidden">
+                    {items.slice(0, 3).map(({ event }, index) => (
+                      <span
+                        key={`${event.id}-${index}`}
+                        className={`h-1 w-1 rounded-full ${isSelected ? "bg-paper/70" : "bg-accent"}`}
+                      />
+                    ))}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </CalendarSwipe>
+
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <h2 className="font-display text-[22px] leading-tight">
+            {selectedInMonth
+              ? selectedDay.setLocale("zh-CN").toFormat("M月d日")
+              : selectedDay.setLocale("zh-CN").toFormat("yyyy年M月d日")}
+          </h2>
+          <p className="mt-0.5 text-[11px] text-faint">
+            {selectedDay.setLocale("zh-CN").toFormat("cccc")} · {selectedLabel}
+          </p>
+        </div>
+        <span className="flex shrink-0 items-center gap-1.5">
           {!selectedDay.hasSame(today, "day") ? (
-            <Link href="/calendar" className="text-[11.5px] text-faint hover:text-ink">
+            <Link href="/calendar" className="chip">
               回到今天
             </Link>
           ) : null}
-          <Link
-            href={`/compose/event?date=${selectedKey}`}
-            className="text-[11.5px] text-accent"
-          >
-            + 添加
+          <Link href={`/compose/event?date=${selectedKey}`} className="chip chip-active">
+            <Plus size={12} /> 添加
           </Link>
         </span>
       </div>

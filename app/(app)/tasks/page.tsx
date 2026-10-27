@@ -6,6 +6,7 @@ import {
   Check,
   CheckCircle2,
   ListTodo,
+  MapPin,
   Pencil,
   Plus,
   Repeat,
@@ -77,6 +78,11 @@ function TaskRow({
           {task.priority === "IMPORTANT" ? (
             <span className="inline-flex items-center gap-1 text-accent">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" /> 重要
+            </span>
+          ) : null}
+          {task.location ? (
+            <span className="inline-flex items-center gap-0.5">
+              <MapPin size={10} /> {task.location}
             </span>
           ) : null}
           {task.recurrenceType !== "NONE" ? (

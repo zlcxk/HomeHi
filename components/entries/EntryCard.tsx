@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Lock, Play } from "lucide-react";
+import { Lock, MapPin, Play } from "lucide-react";
+import { Avatar } from "@/components/Avatar";
 import type { EntryCardData } from "@/lib/entries-view";
 import { formatDayLabel, formatTime } from "@/lib/dates";
 import { ENTRY_TYPE_LABEL } from "@/lib/constants";
@@ -20,7 +21,7 @@ export function EntryCard({
   const typeLabel = ENTRY_TYPE_LABEL[entry.entryType] || "记录";
 
   return (
-    <article className="card group overflow-hidden transition hover:border-line-strong">
+    <article className="card card-organic group overflow-hidden transition hover:border-line-strong">
       <Link href={`/entries/${entry.id}`} className="block">
         {hasMedia ? (
           <div className={`grid gap-0.5 ${entry.media.length === 1 ? "" : "grid-cols-2"}`}>
@@ -82,7 +83,7 @@ export function EntryCard({
           </div>
 
           {entry.title ? (
-            <h3 className="font-display mt-2 text-[24px] leading-[1.22] tracking-tight sm:text-[26px]">
+            <h3 className="font-display mt-2 text-[26px] leading-[1.18] tracking-[-0.025em] sm:text-[29px]">
               {entry.title}
             </h3>
           ) : null}
@@ -114,6 +115,17 @@ export function EntryCard({
               ))}
             </div>
           ) : null}
+
+          <div className="mt-3.5 flex items-center gap-2">
+            <Avatar name={entry.creatorName} src={entry.creatorAvatarUrl} size={22} />
+            <span className="text-[11px] text-muted">{entry.creatorName}</span>
+            {entry.location ? (
+              <span className="ml-auto inline-flex min-w-0 items-center gap-0.5 text-[10.5px] text-faint">
+                <MapPin size={10.5} className="shrink-0" />
+                <span className="truncate">{entry.location}</span>
+              </span>
+            ) : null}
+          </div>
         </div>
       </Link>
     </article>

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { toDateInput, toLocalInput } from "@/lib/dates";
 import { parseStringArray } from "@/lib/json";
 import { parseOffsets } from "@/lib/reminders";
-import { assetOptions, profileOptions, memberOptions } from "@/lib/view";
+import { assetOptions, profileOptions, memberOptions, recentLocations } from "@/lib/view";
 import { smtpStatus } from "@/lib/mailer";
 import { TaskComposer, type TaskInitial } from "@/components/compose/TaskComposer";
 
@@ -22,10 +22,11 @@ export default async function EditTaskPage({ params }: { params: Promise<{ id: s
   });
   if (!task) notFound();
 
-  const [profiles, members, assets, rule] = await Promise.all([
+  const [profiles, members, assets, locations, rule] = await Promise.all([
     profileOptions(context),
     memberOptions(context),
     assetOptions(context),
+    recentLocations(context),
     prisma.reminderRule.findUnique({
       where: { targetType_targetId: { targetType: "TASK", targetId: id } },
     }),
@@ -35,6 +36,7 @@ export default async function EditTaskPage({ params }: { params: Promise<{ id: s
     id: task.id,
     title: task.title,
     description: task.description || "",
+    location: task.location || "",
     dueAt: task.dueAt ? toLocalInput(task.dueAt, timezone) : "",
     priority: task.priority,
     assigneeUserId: task.assigneeUserId || "",
@@ -52,6 +54,7 @@ export default async function EditTaskPage({ params }: { params: Promise<{ id: s
       profiles={profiles}
       members={members}
       assets={assets}
+      locations={locations}
       defaultVisibility={context.user.defaultVisibility}
       smtpConfigured={smtpStatus().configured}
       initial={initial}
