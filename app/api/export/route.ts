@@ -38,6 +38,7 @@ export async function GET() {
     entries,
     media,
     albums,
+    assets,
     events,
     tasks,
     completions,
@@ -65,6 +66,7 @@ export async function GET() {
       where: { householdId },
       include: { media: { select: { mediaId: true, sortOrder: true } } },
     }),
+    prisma.asset.findMany({ where: { householdId }, orderBy: { createdAt: "asc" } }),
     prisma.calendarEvent.findMany({ where: { householdId }, orderBy: { startsAt: "asc" } }),
     prisma.task.findMany({ where: { householdId }, orderBy: { createdAt: "asc" } }),
     prisma.taskCompletion.findMany({
@@ -119,6 +121,7 @@ export async function GET() {
       file: `media/${item.id}-${item.originalFilename}`,
     })),
     albums,
+    assets,
     events,
     tasks,
     taskCompletions: completions,

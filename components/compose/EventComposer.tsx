@@ -6,6 +6,8 @@ import { saveEventAction } from "@/app/actions/events";
 import { ComposeHeader } from "@/components/compose/ComposeHeader";
 import { SaveBar } from "@/components/compose/SaveBar";
 import { ProfilePicker, type ProfileOption } from "@/components/pickers/ProfilePicker";
+import { AssetPicker } from "@/components/pickers/AssetPicker";
+import type { AssetOption } from "@/lib/view";
 import { RecurrencePicker } from "@/components/pickers/RecurrencePicker";
 import { ReminderPicker } from "@/components/pickers/ReminderPicker";
 import { VisibilityControl } from "@/components/pickers/VisibilityControl";
@@ -29,10 +31,12 @@ export type EventInitial = {
   visibility: string;
   reminderOffsets: number[];
   relatedProfileIds: string[];
+  relatedAssetIds: string[];
 };
 
 export function EventComposer({
   profiles,
+  assets = [],
   defaultVisibility,
   smtpConfigured,
   defaultStart,
@@ -40,6 +44,7 @@ export function EventComposer({
   backHref = "/calendar",
 }: {
   profiles: ProfileOption[];
+  assets?: AssetOption[];
   defaultVisibility: string;
   smtpConfigured: boolean;
   defaultStart: string;
@@ -96,7 +101,6 @@ export function EventComposer({
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-[13.5px] font-medium">全天</p>
-              <p className="mt-0.5 text-[11.5px] text-faint">生日、纪念日或不确定具体时刻的日子</p>
             </div>
             <button
               type="button"
@@ -186,6 +190,7 @@ export function EventComposer({
           />
           <ReminderPicker initial={initial?.reminderOffsets || []} smtpConfigured={smtpConfigured} />
           <ProfilePicker options={profiles} initialIds={initial?.relatedProfileIds || []} label="和谁有关" />
+          <AssetPicker options={assets} initialIds={initial?.relatedAssetIds || []} />
           <VisibilityControl initial={visibility} onChange={setVisibility} />
         </div>
 
@@ -193,7 +198,7 @@ export function EventComposer({
           <FormMessage error={state.error} />
         </div>
 
-        <SaveBar note="保存后可在日历中查看、改期或取消。">
+        <SaveBar>
           <SubmitButton className="btn btn-primary btn-lg w-full sm:w-auto">
             {editing ? "保存日程" : "创建日程"}
           </SubmitButton>

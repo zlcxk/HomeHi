@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { requireContext } from "@/lib/auth";
-import { profileOptions } from "@/lib/view";
+import { assetOptions, profileOptions } from "@/lib/view";
 import { smtpStatus } from "@/lib/mailer";
 import { EventComposer } from "@/components/compose/EventComposer";
 
@@ -11,7 +11,7 @@ export default async function ComposeEventPage({
 }) {
   const context = await requireContext();
   const { date } = await searchParams;
-  const profiles = await profileOptions(context);
+  const [profiles, assets] = await Promise.all([profileOptions(context), assetOptions(context)]);
   const timezone = context.household.timezone;
 
   const start = date
@@ -21,6 +21,7 @@ export default async function ComposeEventPage({
   return (
     <EventComposer
       profiles={profiles}
+      assets={assets}
       defaultVisibility={context.user.defaultVisibility}
       smtpConfigured={smtpStatus().configured}
       defaultStart={start.toFormat("yyyy-MM-dd'T'HH:mm")}

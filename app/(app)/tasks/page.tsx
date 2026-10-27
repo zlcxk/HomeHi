@@ -219,8 +219,8 @@ export default async function TasksPage() {
         eyebrow="Things to do"
         description={
           openTasks.length > 0
-            ? `还有 ${openTasks.length} 件要做。${doneToday > 0 ? `今天已完成 ${doneToday} 件。` : ""}`
-            : "需要做的事放在这里，不占脑子。"
+            ? `还有 ${openTasks.length} 件${doneToday > 0 ? ` · 今天完成 ${doneToday} 件` : ""}`
+            : undefined
         }
         action={
           <Link href="/compose/task" className="btn btn-primary btn-sm">
@@ -235,7 +235,6 @@ export default async function TasksPage() {
         <EmptyState
           icon={<ListTodo strokeWidth={1.7} />}
           title="现在没有待办"
-          description="想到什么，就在上面的输入框里写一句。有截止时间的事，记得设置提醒。"
           action={
             <Link href="/compose/task" className="btn btn-outline btn-sm">
               <Plus size={14} /> 详细添加

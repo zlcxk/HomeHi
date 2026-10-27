@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  Boxes,
   CalendarDays,
   CheckCircle2,
   Images,
@@ -9,23 +10,74 @@ import {
 } from "lucide-react";
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { mediaWhere, publishedEntryWhere, taskWhere, profileWhere } from "@/lib/access";
+import { assetWhere, mediaWhere, publishedEntryWhere, taskWhere, profileWhere } from "@/lib/access";
 import { dayKey, formatDateFull, formatDayLabel, formatTime } from "@/lib/dates";
 import { entryCardInclude, toEntryCard } from "@/lib/entries-view";
+import { assetCategoryLabel, expiryHint } from "@/lib/assets";
 import { EntryCard } from "@/components/entries/EntryCard";
 import { PageHeader } from "@/components/PageHeader";
 import { Avatar } from "@/components/Avatar";
 
+const SEARCH_TYPES = [
+  { value: "all", label: "全部" },
+  { value: "entries", label: "记录" },
+  { value: "media", label: "照片" },
+  { value: "events", label: "日程" },
+  { value: "tasks", label: "待办" },
+  { value: "profiles", label: "家人与宠物" },
+  { value: "assets", label: "物品与资产" },
+] as const;
+
+function SearchForm({ q, type, autoFocus = false }: { q: string; type: string; autoFocus?: boolean }) {
+  return (
+    <form action="/search" className="card mb-5 p-2.5">
+      <div className="flex items-center gap-2 px-1.5">
+        <SearchIcon size={17} className="shrink-0 text-faint" />
+        <input
+          name="q"
+          defaultValue={q}
+          autoFocus={autoFocus}
+          placeholder="搜点什么…"
+          className="min-w-0 flex-1 border-0 bg-transparent py-2 text-[14px] outline-none placeholder:text-faint"
+          aria-label="搜索"
+        />
+        <button type="submit" className="btn btn-soft btn-sm shrink-0">
+          搜索
+        </button>
+      </div>
+      <div className="mt-1.5 flex items-center gap-2 border-t border-line px-1.5 pt-2.5">
+        <label htmlFor="search-type" className="text-[11px] text-faint">
+          范围
+        </label>
+        <select
+          id="search-type"
+          name="type"
+          defaultValue={type}
+          className="min-w-0 flex-1 border-0 bg-transparent py-1 text-[12px] text-ink outline-none"
+        >
+          {SEARCH_TYPES.map((item) => (
+            <option key={item.value} value={item.value}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </form>
+  );
+}
+
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; type?: string }>;
 }) {
   const context = await requireContext();
   const viewer = { userId: context.user.id, householdId: context.household.id };
   const timezone = context.household.timezone;
-  const { q: rawQuery } = await searchParams;
-  const q = rawQuery?.trim() || "";
+  const params = await searchParams;
+  const q = params.q?.trim() || "";
+  const type = SEARCH_TYPES.some((item) => item.value === params.type) ? params.type! : "all";
+  const show = (key: string) => type === "all" || type === key;
 
   if (!q) {
     const [tags, recent] = await Promise.all([
@@ -45,21 +97,9 @@ export default async function SearchPage({
 
     return (
       <div>
-        <PageHeader title="搜索" eyebrow="Find anything" description="找一段记录、一张照片、一个日子，或者某个人的名字。" />
+        <PageHeader title="搜索" eyebrow="Find anything" />
 
-        <form action="/search" className="card mb-7 flex items-center gap-2 px-4 py-2 transition focus-within:border-line-strong focus-within:ring-2 focus-within:ring-accent/10">
-          <SearchIcon size={17} className="shrink-0 text-faint" />
-          <input
-            name="q"
-            autoFocus
-            placeholder="搜点什么…"
-            className="min-w-0 flex-1 border-0 bg-transparent py-2.5 text-[14px] outline-none placeholder:text-faint"
-            aria-label="搜索"
-          />
-          <button type="submit" className="btn btn-soft btn-sm shrink-0">
-            搜索
-          </button>
-        </form>
+        <SearchForm q="" type={type} autoFocus />
 
         {tags.length > 0 ? (
           <section className="mb-8">
@@ -89,7 +129,7 @@ export default async function SearchPage({
   }
 
   const contains = { contains: q } as const;
-  const [entries, media, events, tasks, profiles, tags] = await Promise.all([
+  const [entries, media, events, tasks, profiles, tags, assets] = await Promise.all([
     prisma.entry.findMany({
       where: {
         ...publishedEntryWhere(viewer),
@@ -139,6 +179,21 @@ export default async function SearchPage({
       where: { householdId: context.household.id, name: contains },
       take: 12,
     }),
+    prisma.asset.findMany({
+      where: {
+        ...assetWhere(viewer),
+        OR: [
+          { name: contains },
+          { brand: contains },
+          { model: contains },
+          { serialNumber: contains },
+          { location: contains },
+          { notes: contains },
+        ],
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 8,
+    }),
   ]);
 
   const avatarIds = profiles.map((p) => p.avatarMediaId).filter((id): id is string => Boolean(id));
@@ -159,30 +214,19 @@ export default async function SearchPage({
     : new Set<string>();
 
   const total =
-    entries.length + media.length + events.length + tasks.length + profiles.length + tags.length;
+    (show("entries") ? entries.length : 0) +
+    (show("media") ? media.length : 0) +
+    (show("events") ? events.length : 0) +
+    (show("tasks") ? tasks.length : 0) +
+    (show("profiles") ? profiles.length : 0) +
+    (show("assets") ? assets.length : 0) +
+    (type === "all" ? tags.length : 0);
 
   return (
     <div>
-      <PageHeader
-        title="搜索"
-        eyebrow="Find anything"
-        description={`「${q}」的全家搜索：记录、照片、日程、待办与家人。`}
-      />
+      <PageHeader title="搜索" eyebrow="Find anything" />
 
-      <form action="/search" className="card mb-5 flex items-center gap-2 px-4 py-2 transition focus-within:border-line-strong focus-within:ring-2 focus-within:ring-accent/10">
-        <SearchIcon size={17} className="shrink-0 text-faint" />
-        <input
-          name="q"
-          defaultValue={q}
-          autoFocus
-          placeholder="搜点什么…"
-          className="min-w-0 flex-1 border-0 bg-transparent py-2.5 text-[14px] outline-none"
-          aria-label="搜索"
-        />
-        <button type="submit" className="btn btn-soft btn-sm shrink-0">
-          搜索
-        </button>
-      </form>
+      <SearchForm q={q} type={type} autoFocus />
 
       <p className="mb-6 text-[12px] text-muted">
         「{q}」找到 {total} 条结果
@@ -192,14 +236,14 @@ export default async function SearchPage({
         <div className="rounded-[24px] border border-dashed border-line-strong px-5 py-12 text-center">
           <SearchIcon size={22} className="mx-auto text-faint" />
           <p className="mt-3 text-[14px] font-medium">没有找到</p>
-          <p className="mt-1 text-[12.5px] text-muted">换个词试试，或者去时光里慢慢翻。</p>
+          <p className="mt-1 text-[12.5px] text-muted">换个词试试。</p>
           <Link href="/timeline" className="btn btn-outline btn-sm mt-4">
             看看时光
           </Link>
         </div>
       ) : null}
 
-      {entries.length > 0 ? (
+      {show("entries") && entries.length > 0 ? (
         <section className="mb-8">
           <h2 className="mb-2.5 flex items-center gap-1.5 text-[13px] font-semibold">
             <PenLine size={14} className="text-faint" /> 记录
@@ -213,13 +257,13 @@ export default async function SearchPage({
         </section>
       ) : null}
 
-      {media.length > 0 ? (
+      {show("media") && media.length > 0 ? (
         <section className="mb-8">
           <h2 className="mb-2.5 flex items-center gap-1.5 text-[13px] font-semibold">
             <Images size={14} className="text-faint" /> 照片
             <span className="font-normal text-faint">{media.length}</span>
           </h2>
-          <div className="grid grid-cols-4 gap-1 sm:grid-cols-6">
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
             {media.map((item) => (
               <Link
                 key={item.id}
@@ -240,7 +284,7 @@ export default async function SearchPage({
         </section>
       ) : null}
 
-      {profiles.length > 0 ? (
+      {show("profiles") && profiles.length > 0 ? (
         <section className="mb-8">
           <h2 className="mb-2.5 flex items-center gap-1.5 text-[13px] font-semibold">
             <Users size={14} className="text-faint" /> 家人与宠物
@@ -273,7 +317,7 @@ export default async function SearchPage({
         </section>
       ) : null}
 
-      {events.length > 0 ? (
+      {show("events") && events.length > 0 ? (
         <section className="mb-8">
           <h2 className="mb-2.5 flex items-center gap-1.5 text-[13px] font-semibold">
             <CalendarDays size={14} className="text-faint" /> 日程
@@ -298,7 +342,7 @@ export default async function SearchPage({
         </section>
       ) : null}
 
-      {tasks.length > 0 ? (
+      {show("tasks") && tasks.length > 0 ? (
         <section className="mb-8">
           <h2 className="mb-2.5 flex items-center gap-1.5 text-[13px] font-semibold">
             <CheckCircle2 size={14} className="text-faint" /> 待办
@@ -317,7 +361,41 @@ export default async function SearchPage({
         </section>
       ) : null}
 
-      {tags.length > 0 ? (
+      {show("assets") && assets.length > 0 ? (
+        <section className="mb-8">
+          <h2 className="mb-2.5 flex items-center gap-1.5 text-[13px] font-semibold">
+            <Boxes size={14} className="text-faint" /> 物品与资产
+            <span className="font-normal text-faint">{assets.length}</span>
+          </h2>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {assets.map((asset) => {
+              const warranty = expiryHint(asset.warrantyUntil, timezone, "质保");
+              return (
+                <Link
+                  key={asset.id}
+                  href={`/assets/${asset.id}`}
+                  className="card flex items-center gap-3 p-3.5"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-raised text-muted">
+                    <Boxes size={15} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium">{asset.name}</span>
+                    <span className="block truncate text-[10.5px] text-faint">
+                      {[assetCategoryLabel(asset.category), asset.brand, asset.location]
+                        .filter(Boolean)
+                        .join(" · ")}
+                      {warranty ? ` · ${warranty}` : ""}
+                    </span>
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {type === "all" && tags.length > 0 ? (
         <section className="mb-8">
           <h2 className="mb-2.5 text-[13px] font-semibold">标签</h2>
           <div className="flex flex-wrap gap-1.5">

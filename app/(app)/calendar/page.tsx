@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Ban,
   Cake,
+  Boxes,
   CalendarDays,
   CheckCircle2,
   MapPin,
@@ -18,6 +19,7 @@ import { prisma } from "@/lib/db";
 import { eventWhere } from "@/lib/access";
 import { formatTime, monthGrid, monthLabel, dayKey } from "@/lib/dates";
 import { occurrencesBetween, recurrenceSummary } from "@/lib/recurrence";
+import { holidayMap } from "@/lib/holidays";
 import { parseStringArray } from "@/lib/json";
 import { cancelEventAction, deleteEventAction } from "@/app/actions/events";
 import { ConfirmButton } from "@/components/ConfirmButton";
@@ -48,7 +50,7 @@ export default async function CalendarPage({
   const gridStart = grid[0].startOf("day");
   const gridEnd = grid[grid.length - 1].endOf("day");
 
-  const [events, dayTasks, profiles] = await Promise.all([
+  const [events, dayTasks, profiles, assets, holidays] = await Promise.all([
     prisma.calendarEvent.findMany({
       where: eventWhere({ userId: context.user.id, householdId: context.household.id }),
       orderBy: { startsAt: "asc" },
@@ -71,7 +73,17 @@ export default async function CalendarPage({
       },
       select: { id: true, name: true, birthday: true, profileType: true },
     }),
+    prisma.asset.findMany({
+      where: {
+        householdId: context.household.id,
+        OR: [{ visibility: "HOUSEHOLD" }, { createdBy: context.user.id }],
+      },
+      select: { id: true, name: true },
+    }),
+    holidayMap([gridStart.year, gridEnd.year]),
   ]);
+
+  const assetNames = new Map(assets.map((asset) => [asset.id, asset.name]));
 
   const byDay = new Map<string, { event: (typeof events)[number]; occurrence: Date }[]>();
   for (const event of events) {
@@ -96,6 +108,7 @@ export default async function CalendarPage({
   }
 
   const selectedKey = selectedDay.toFormat("yyyy-MM-dd");
+  const selectedHoliday = holidays.get(selectedKey);
   const dayItems = (byDay.get(selectedKey) || []).sort(
     (a, b) => a.occurrence.getTime() - b.occurrence.getTime(),
   );
@@ -158,6 +171,7 @@ export default async function CalendarPage({
             const isToday = day.hasSame(today, "day");
             const isSelected = key === selectedKey;
             const items = byDay.get(key) || [];
+            const holiday = holidays.get(key);
             return (
               <Link
                 key={key}
@@ -184,6 +198,16 @@ export default async function CalendarPage({
                 >
                   {day.day}
                 </span>
+                {holiday ? (
+                  <span
+                    className={`mt-0.5 block w-full truncate text-[8px] leading-none sm:text-[9px] ${
+                      holiday.isOffDay ? "text-accent" : "text-faint"
+                    }`}
+                    title={`${holiday.name}${holiday.isOffDay ? "" : "（调休上班）"}`}
+                  >
+                    {holiday.isOffDay ? holiday.name : "班"}
+                  </span>
+                ) : null}
                 <span className="mt-1 hidden flex-1 flex-col gap-0.5 overflow-hidden sm:flex">
                   {items.slice(0, 2).map(({ event, occurrence }, index) => (
                     <span
@@ -231,10 +255,16 @@ export default async function CalendarPage({
         </span>
       </div>
 
+      {selectedHoliday ? (
+        <div className="mb-3 flex items-center gap-2 rounded-2xl bg-accent-soft/60 px-3.5 py-2.5 text-[12px]">
+          <span className="font-medium text-accent">{selectedHoliday.name}</span>
+          <span className="text-muted">{selectedHoliday.isOffDay ? "休息日" : "调休上班"}</span>
+        </div>
+      ) : null}
+
       {dayItems.length === 0 && dayTasks.length === 0 && dayBirthdays.length === 0 ? (
         <div className="rounded-[24px] border border-dashed border-line-strong px-5 py-8 text-center">
           <p className="text-[13.5px] font-medium">这一天还没有安排</p>
-          <p className="mt-1 text-[12px] text-muted">留白也很好。需要的话，加一件日程或待办。</p>
           <Link href={`/compose/event?date=${selectedKey}`} className="btn btn-outline btn-sm mt-4">
             <CalendarDays size={14} /> 添加日程
           </Link>
@@ -285,6 +315,15 @@ export default async function CalendarPage({
                     {parseStringArray(event.relatedProfileIds).length > 0 ? (
                       <span>{parseStringArray(event.relatedProfileIds).length} 人相关</span>
                     ) : null}
+                    {parseStringArray(event.relatedAssetIds)
+                      .map((id) => assetNames.get(id))
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((name) => (
+                        <span key={name} className="inline-flex items-center gap-0.5">
+                          <Boxes size={10} /> {name}
+                        </span>
+                      ))}
                   </div>
                   {event.description ? (
                     <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">{event.description}</p>

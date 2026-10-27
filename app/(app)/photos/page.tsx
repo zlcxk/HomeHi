@@ -61,11 +61,15 @@ export default async function PhotosPage({
       <PageHeader
         title="照片"
         eyebrow="The family album"
-        description="全家人的照片放在一起，按拍摄时间自然排开。"
         action={
-          <Link href="/photos/albums/new" className="btn btn-outline btn-sm">
-            <FolderPlus size={15} /> 新建相册
-          </Link>
+          <div className="flex items-center gap-1.5">
+            <Link href="/photos/upload" className="btn btn-primary btn-sm">
+              <Camera size={15} /> 上传
+            </Link>
+            <Link href="/photos/albums/new" className="btn btn-outline btn-sm">
+              <FolderPlus size={15} /> 相册
+            </Link>
+          </div>
         }
       />
 
@@ -121,11 +125,7 @@ export default async function PhotosPage({
         <EmptyState
           icon={<Camera strokeWidth={1.7} />}
           title={filtered ? "这一类还没有照片" : "照片墙还空着"}
-          description={
-            filtered
-              ? "换个筛选看看，或者去记录里添加照片。"
-              : "从手机相册选几张，或者现在拍一张。照片会按时间自动排好。"
-          }
+          description={filtered ? "换个筛选看看。" : "从手机相册选几张，或者现在拍一张。"}
           action={
             <Link href="/compose/moment" className="btn btn-primary btn-sm">
               <Camera size={14} /> 添加照片

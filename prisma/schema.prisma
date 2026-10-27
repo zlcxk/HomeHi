@@ -35,6 +35,7 @@ model User {
   tasksAssigned   Task[]             @relation("TaskAssignee")
   taskCompletions TaskCompletion[]
   linkedProfiles  FamilyProfile[]    @relation("ProfileUser")
+  assets          Asset[]            @relation("AssetCreator")
 }
 
 model Household {
@@ -55,6 +56,7 @@ model Household {
   reminders     ReminderRule[]
   notifications Notification[]
   settings      AppSetting[]
+  assets        Asset[]
 }
 
 model HouseholdMember {
@@ -94,6 +96,39 @@ model FamilyProfile {
   entries   EntryProfile[]
 
   @@index([householdId, profileType])
+}
+
+model Asset {
+  id                   String    @id @default(cuid())
+  householdId          String
+  createdBy            String
+  name                 String
+  category             String    @default("OTHER") // APPLIANCE | ELECTRONICS | FURNITURE | VEHICLE | DOCUMENT | TOOL | OTHER
+  brand                String?
+  model                String?
+  serialNumber         String?
+  location             String?
+  purchaseDate         DateTime?
+  purchasePrice        Float?
+  vendor               String?
+  warrantyUntil        DateTime?
+  maintenanceEveryDays Int?
+  insuranceUntil       DateTime?
+  insuranceProvider    String?
+  notes                String?
+  photoMediaId         String?
+  status               String    @default("ACTIVE") // ACTIVE | REPAIRED | RETIRED | SOLD
+  visibility           String    @default("HOUSEHOLD")
+  isDemo               Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  creator   User      @relation("AssetCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([householdId, category])
+  @@index([householdId, warrantyUntil])
+  @@index([householdId, insuranceUntil])
 }
 
 model Entry {
@@ -269,6 +304,7 @@ model CalendarEvent {
   visibility         String    @default("HOUSEHOLD")
   status             String    @default("ACTIVE") // ACTIVE | CANCELLED
   relatedProfileIds  String? // JSON string[] of FamilyProfile ids
+  relatedAssetIds    String? // JSON string[] of Asset ids
   isDemo             Boolean   @default(false)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -295,6 +331,7 @@ model Task {
   visibility         String    @default("HOUSEHOLD")
   completedAt        DateTime?
   relatedProfileIds  String? // JSON string[] of FamilyProfile ids
+  relatedAssetIds    String? // JSON string[] of Asset ids
   isDemo             Boolean   @default(false)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt

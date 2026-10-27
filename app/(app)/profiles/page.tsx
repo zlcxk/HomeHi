@@ -52,9 +52,9 @@ export default async function ProfilesPage() {
     return (
       <Link
         href={`/profiles/${profile.id}`}
-        className="card flex items-center gap-4 p-4 transition hover:border-line-strong"
+        className="card flex items-center gap-3 p-3.5 transition hover:border-line-strong sm:gap-4 sm:p-4"
       >
-        <Avatar name={profile.name} src={avatarUrl} size={58} />
+        <Avatar name={profile.name} src={avatarUrl} size={52} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-[15px] font-semibold">{profile.name}</p>
@@ -91,7 +91,6 @@ export default async function ProfilesPage() {
       <PageHeader
         title="家人与宠物"
         eyebrow="Our people"
-        description="每个人的档案里，会收着与 TA 有关的记录、照片和即将到来的日子。"
         action={
           <Link href="/profiles/new" className="btn btn-primary btn-sm">
             <Plus size={14} /> 添加
@@ -103,7 +102,6 @@ export default async function ProfilesPage() {
         <EmptyState
           icon={<Users strokeWidth={1.7} />}
           title="还没有家人的档案"
-          description="先给自己建一个，再邀请家人。有了档案，记录就能和具体的人连在一起。"
           action={
             <Link href="/profiles/new" className="btn btn-primary btn-sm">
               <Plus size={14} /> 新建档案
@@ -111,7 +109,7 @@ export default async function ProfilesPage() {
           }
         />
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
           {people.length > 0 ? (
             <section>
               <h2 className="mb-2.5 text-[13px] font-semibold">

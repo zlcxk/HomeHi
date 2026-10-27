@@ -27,12 +27,7 @@ export function VisibilityControl({
 
   return (
     <div>
-      {!compact ? (
-        <div className="mb-2 flex items-center justify-between">
-          <span className="label mb-0">{label}</span>
-          <span className="text-[11px] text-faint">默认全家共享</span>
-        </div>
-      ) : null}
+      {!compact ? <span className="label">{label}</span> : null}
       <input type="hidden" name={name} value={value} />
       <div className="grid grid-cols-2 gap-1 rounded-2xl border border-line bg-surface p-1">
         <button
@@ -56,11 +51,9 @@ export function VisibilityControl({
           <Lock size={13} strokeWidth={1.8} /> 仅自己
         </button>
       </div>
-      <p className="field-hint">
-        {value === "PRIVATE"
-          ? "其他家庭成员看不到这条内容，其中的照片也不会出现在共享照片库。"
-          : "家庭空间里的成员都可以看到。"}
-      </p>
+      {value === "PRIVATE" ? (
+        <p className="field-hint">家庭成员看不到这条内容，相关照片也不会进入共享照片库。</p>
+      ) : null}
     </div>
   );
 }

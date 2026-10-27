@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    console.error("[media upload]", error);
     const message = error instanceof Error ? error.message : "上传失败";
     return NextResponse.json({ error: message }, { status: 400 });
   }

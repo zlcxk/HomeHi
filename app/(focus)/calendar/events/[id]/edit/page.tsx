@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { toDateInput, toLocalInput } from "@/lib/dates";
 import { parseStringArray } from "@/lib/json";
 import { parseOffsets } from "@/lib/reminders";
-import { profileOptions } from "@/lib/view";
+import { assetOptions, profileOptions } from "@/lib/view";
 import { smtpStatus } from "@/lib/mailer";
 import { EventComposer, type EventInitial } from "@/components/compose/EventComposer";
 
@@ -22,8 +22,9 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
   });
   if (!event) notFound();
 
-  const [profiles, rule] = await Promise.all([
+  const [profiles, assets, rule] = await Promise.all([
     profileOptions(context),
+    assetOptions(context),
     prisma.reminderRule.findUnique({
       where: { targetType_targetId: { targetType: "CALENDAR_EVENT", targetId: id } },
     }),
@@ -49,11 +50,13 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
     visibility: event.visibility,
     reminderOffsets: rule?.enabled ? parseOffsets(rule.offsets) : [],
     relatedProfileIds: parseStringArray(event.relatedProfileIds),
+    relatedAssetIds: parseStringArray(event.relatedAssetIds),
   };
 
   return (
     <EventComposer
       profiles={profiles}
+      assets={assets}
       defaultVisibility={context.user.defaultVisibility}
       smtpConfigured={smtpStatus().configured}
       defaultStart={initial.start}

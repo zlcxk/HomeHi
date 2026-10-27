@@ -92,7 +92,6 @@ export function StoryComposer({
             visibility={visibility}
             max={40}
             onBusyChange={setBusy}
-            hint="照片可以插在记录旁边，第一张会作为封面。"
           />
         </div>
 

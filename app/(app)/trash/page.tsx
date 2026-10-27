@@ -38,16 +38,13 @@ export default async function TrashPage() {
         </Link>
         <p className="eyebrow">Recently deleted</p>
         <h1 className="font-display mt-1.5 text-[34px] leading-none tracking-tight">回收站</h1>
-        <p className="mt-1.5 text-[12px] text-muted">
-          删除的记录会先放在这里，可以恢复。彻底删除后无法找回。
-        </p>
       </header>
 
       {entries.length === 0 ? (
         <EmptyState
           icon={<Trash2 strokeWidth={1.7} />}
           title="回收站是空的"
-          description="删除记录后，会先在这里保留一段时间，给你反悔的机会。"
+          description="删除的记录会先留在这里，可以恢复。"
           action={
             <Link href="/timeline" className="btn btn-outline btn-sm">
               回到时光

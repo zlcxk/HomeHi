@@ -234,6 +234,47 @@ export async function seedDemoData(context: DemoContext): Promise<{ created: boo
     })),
   });
 
+  const [fridge, car] = await Promise.all([
+    prisma.asset.create({
+      data: {
+        householdId: context.householdId,
+        createdBy: context.userId,
+        name: "厨房冰箱",
+        category: "APPLIANCE",
+        brand: "海尔",
+        model: "BCD-501",
+        location: "厨房",
+        purchaseDate: now.minus({ years: 2 }).startOf("day").toUTC().toJSDate(),
+        purchasePrice: 4299,
+        vendor: "京东",
+        warrantyUntil: now.plus({ months: 10 }).startOf("day").toUTC().toJSDate(),
+        maintenanceEveryDays: 180,
+        notes: "滤芯型号在说明书最后一页。",
+        visibility: "HOUSEHOLD",
+        isDemo: true,
+      },
+    }),
+    prisma.asset.create({
+      data: {
+        householdId: context.householdId,
+        createdBy: context.userId,
+        name: "家里的车",
+        category: "VEHICLE",
+        brand: "大众",
+        model: "高尔夫",
+        location: "地下车库 B2",
+        purchaseDate: now.minus({ years: 4 }).startOf("day").toUTC().toJSDate(),
+        purchasePrice: 158000,
+        warrantyUntil: now.plus({ days: 20 }).startOf("day").toUTC().toJSDate(),
+        maintenanceEveryDays: 365,
+        insuranceUntil: now.plus({ months: 5 }).startOf("day").toUTC().toJSDate(),
+        insuranceProvider: "平安车险",
+        visibility: "HOUSEHOLD",
+        isDemo: true,
+      },
+    }),
+  ]);
+
   const nextFriday = (() => {
     let candidate = now.startOf("day").plus({ days: 1 }).set({ hour: 20, minute: 0 });
     while (candidate.weekday !== 5) candidate = candidate.plus({ days: 1 });
@@ -328,7 +369,34 @@ export async function seedDemoData(context: DemoContext): Promise<{ created: boo
     },
   });
 
-  for (const task of [dogFood, utilities]) {
+  const fridgeFilter = await prisma.task.create({
+    data: {
+      householdId: context.householdId,
+      createdBy: context.userId,
+      title: "更换冰箱滤芯",
+      dueAt: now.plus({ days: 45 }).set({ hour: 10, minute: 0 }).toUTC().toJSDate(),
+      recurrenceType: "YEARLY",
+      recurrenceInterval: 1,
+      visibility: "HOUSEHOLD",
+      isDemo: true,
+      relatedAssetIds: JSON.stringify([fridge.id]),
+    },
+  });
+
+  const carService = await prisma.task.create({
+    data: {
+      householdId: context.householdId,
+      createdBy: context.userId,
+      title: "预约车辆保养",
+      description: "顺便检查一下刹车片。",
+      dueAt: now.plus({ days: 20 }).set({ hour: 10, minute: 0 }).toUTC().toJSDate(),
+      visibility: "HOUSEHOLD",
+      isDemo: true,
+      relatedAssetIds: JSON.stringify([car.id]),
+    },
+  });
+
+  for (const task of [dogFood, utilities, fridgeFilter, carService]) {
     await prisma.reminderRule.create({
       data: {
         householdId: context.householdId,
@@ -381,6 +449,7 @@ export async function clearDemoData(householdId: string): Promise<void> {
   await prisma.$transaction([
     prisma.entry.deleteMany({ where: { householdId, isDemo: true } }),
     prisma.album.deleteMany({ where: { householdId, isDemo: true } }),
+    prisma.asset.deleteMany({ where: { householdId, isDemo: true } }),
     prisma.familyProfile.deleteMany({ where: { householdId, isDemo: true } }),
     prisma.calendarEvent.deleteMany({ where: { householdId, isDemo: true } }),
     prisma.task.deleteMany({ where: { householdId, isDemo: true } }),

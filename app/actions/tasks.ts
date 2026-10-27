@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/auth";
 import { localInputToUtc } from "@/lib/dates";
 import { nextOccurrence } from "@/lib/recurrence";
+import { validAssetIds } from "@/lib/asset-links";
 import {
   cancelPendingNotifications,
   clearReminderRule,
@@ -26,6 +27,7 @@ function revalidateTaskSurfaces() {
   revalidatePath("/calendar");
   revalidatePath("/my");
   revalidatePath("/profiles");
+  revalidatePath("/assets");
   revalidatePath("/notifications");
 }
 
@@ -81,6 +83,11 @@ export async function saveTaskAction(
     context.household.id,
     formArray(formData, "relatedProfileIds"),
   );
+  const relatedAssetIds = await validAssetIds(
+    context.household.id,
+    context.user.id,
+    formArray(formData, "relatedAssetIds"),
+  );
 
   let taskId = id;
 
@@ -106,6 +113,7 @@ export async function saveTaskAction(
         recurrenceUntil,
         visibility: data.visibility,
         relatedProfileIds: relatedProfileIds.length ? JSON.stringify(relatedProfileIds) : null,
+        relatedAssetIds: relatedAssetIds.length ? JSON.stringify(relatedAssetIds) : null,
         status: existing.status === "CANCELLED" ? "TODO" : existing.status,
       },
     });
@@ -124,6 +132,7 @@ export async function saveTaskAction(
         recurrenceUntil,
         visibility: data.visibility,
         relatedProfileIds: relatedProfileIds.length ? JSON.stringify(relatedProfileIds) : null,
+        relatedAssetIds: relatedAssetIds.length ? JSON.stringify(relatedAssetIds) : null,
       },
     });
     taskId = created.id;

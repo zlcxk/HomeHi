@@ -213,9 +213,7 @@ export default async function TodayPage() {
           </h1>
           <p className="mt-2 text-[13px] text-muted">
             {dayStart.setLocale("zh-CN").toFormat("yyyy年M月d日 cccc")}
-            {todayItems.length > 0
-              ? ` · 今天有 ${todayItems.length} 件需要留意的事`
-              : " · 今天没有安排，慢慢来"}
+            {todayItems.length > 0 ? ` · ${todayItems.length} 件事` : " · 没有安排"}
           </p>
         </div>
         <div className="hidden text-right sm:block">
@@ -230,7 +228,7 @@ export default async function TodayPage() {
         <div className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-line bg-accent-soft/60 px-4 py-3">
           <p className="text-[12px] leading-relaxed text-muted">
             <Sparkles size={13} className="mr-1 inline text-accent" />
-            你现在看到的是示例数据，随时可以清空后开始记录自己的日子。
+            当前是示例数据，可随时清空。
           </p>
           <Link href="/settings/data" className="shrink-0 text-[11.5px] font-semibold text-accent">
             管理
@@ -280,10 +278,7 @@ export default async function TodayPage() {
 
         {todayItems.length === 0 && birthdaysToday.length === 0 ? (
           <div className="rounded-[24px] border border-dashed border-line-strong px-5 py-7">
-            <p className="text-[13.5px] font-medium">今天还是空白</p>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
-              没有日程和待办。可以随手记下此刻，或给某一天留个提醒。
-            </p>
+            <p className="text-[13.5px] font-medium">今天没有安排</p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link href="/compose/moment" className="btn btn-primary btn-sm">
                 <Camera size={14} /> 记一个瞬间
@@ -303,7 +298,7 @@ export default async function TodayPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13.5px] font-medium">{profile.name} 的生日</p>
                   <p className="text-[11px] text-faint">
-                    {profile.profileType === "PET" ? "宠物生日" : "今天是生日"} · 别忘了说一句
+                    {profile.profileType === "PET" ? "宠物生日" : "生日"}
                   </p>
                 </div>
                 <Link href={`/profiles/${profile.id}`} className="text-[11.5px] text-accent">
@@ -349,7 +344,6 @@ export default async function TodayPage() {
         <section className="mb-9">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 className="text-[14px] font-semibold">那年今天</h2>
-            <span className="text-[11.5px] text-faint">过去的这一天</span>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {onThisDay.slice(0, 2).map((entry) => (
@@ -451,7 +445,7 @@ export default async function TodayPage() {
           <EmptyState
             icon={<PenLine strokeWidth={1.7} />}
             title={hasAnything ? "还没有记下什么" : "从今天开始，收好一点日子"}
-            description="一张照片、一句话，或者一件小事。之后回头看，会感谢现在的自己。"
+            description="一张照片、一句话，都可以。"
             action={
               <div className="flex flex-wrap justify-center gap-2">
                 <Link href="/compose/moment" className="btn btn-primary btn-sm">

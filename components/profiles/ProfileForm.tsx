@@ -57,9 +57,6 @@ export function ProfileForm({
         <h1 className="font-display mt-1.5 text-[32px] leading-tight">
           {initial ? "编辑档案" : "添加一位家人"}
         </h1>
-        <p className="mt-1.5 text-[12.5px] text-muted">
-          人、宠物，或者一位常来的朋友。档案能把相关的记录和照片收在一起。
-        </p>
       </header>
 
       <form action={action}>
@@ -105,7 +102,6 @@ export function ProfileForm({
             single
             fieldName="avatarMediaId"
             label="选择照片"
-            hint="从相册选一张，或者现在上传。"
             onBusyChange={setBusy}
           />
         </div>

@@ -6,6 +6,8 @@ import { saveTaskAction } from "@/app/actions/tasks";
 import { ComposeHeader } from "@/components/compose/ComposeHeader";
 import { SaveBar } from "@/components/compose/SaveBar";
 import { ProfilePicker, type ProfileOption } from "@/components/pickers/ProfilePicker";
+import { AssetPicker } from "@/components/pickers/AssetPicker";
+import type { AssetOption } from "@/lib/view";
 import { RecurrencePicker } from "@/components/pickers/RecurrencePicker";
 import { ReminderPicker } from "@/components/pickers/ReminderPicker";
 import { VisibilityControl } from "@/components/pickers/VisibilityControl";
@@ -28,6 +30,7 @@ export type TaskInitial = {
   visibility: string;
   reminderOffsets: number[];
   relatedProfileIds: string[];
+  relatedAssetIds: string[];
 };
 
 function pad(value: number): string {
@@ -46,21 +49,33 @@ function dateOnly(date: Date): string {
 
 export function TaskComposer({
   profiles,
+  assets = [],
   members,
   defaultVisibility,
   smtpConfigured,
   initial,
   backHref = "/tasks",
+  defaultTitle = "",
+  defaultDueAt = "",
+  defaultAssetIds = [],
+  defaultRecurrence,
+  defaultReminderOffsets = [],
 }: {
   profiles: ProfileOption[];
+  assets?: AssetOption[];
   members: { id: string; name: string; role: string }[];
   defaultVisibility: string;
   smtpConfigured: boolean;
   initial?: TaskInitial;
   backHref?: string;
+  defaultTitle?: string;
+  defaultDueAt?: string;
+  defaultAssetIds?: string[];
+  defaultRecurrence?: { type: string; interval: number };
+  defaultReminderOffsets?: number[];
 }) {
   const [state, action] = useActionState(saveTaskAction, initialState);
-  const [due, setDue] = useState(initial?.dueAt || "");
+  const [due, setDue] = useState(initial?.dueAt || defaultDueAt);
   const [priority, setPriority] = useState(initial?.priority || "NORMAL");
   const [visibility, setVisibility] = useState(
     initial?.visibility || (defaultVisibility === "PRIVATE" ? "PRIVATE" : "HOUSEHOLD"),
@@ -98,7 +113,7 @@ export function TaskComposer({
         <div className="pt-6">
           <input
             name="title"
-            defaultValue={initial?.title || ""}
+            defaultValue={initial?.title || defaultTitle}
             placeholder="需要做什么？"
             maxLength={160}
             required
@@ -112,7 +127,6 @@ export function TaskComposer({
             <span className="flex items-center gap-2 text-[13px] font-medium">
               <CalendarClock size={15} className="text-muted" /> 截止时间
             </span>
-            <span className="text-[11px] text-faint">可选</span>
           </div>
 
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -141,9 +155,6 @@ export function TaskComposer({
             className="field mt-3"
             aria-label="截止时间"
           />
-          <p className="field-hint">
-            {due ? "到期前会按下面的设置发送邮件提醒。" : "不设时间也可以；没有截止时间就不会发送邮件提醒。"}
-          </p>
         </div>
 
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
@@ -208,12 +219,16 @@ export function TaskComposer({
 
         <div className="mt-6 space-y-5">
           <RecurrencePicker
-            initialType={initial?.recurrenceType || "NONE"}
-            initialInterval={initial?.recurrenceInterval || 1}
+            initialType={initial?.recurrenceType || defaultRecurrence?.type || "NONE"}
+            initialInterval={initial?.recurrenceInterval || defaultRecurrence?.interval || 1}
             initialUntil={initial?.recurrenceUntil || ""}
           />
-          <ReminderPicker initial={initial?.reminderOffsets || []} smtpConfigured={smtpConfigured} />
+          <ReminderPicker
+            initial={initial?.reminderOffsets || defaultReminderOffsets}
+            smtpConfigured={smtpConfigured}
+          />
           <ProfilePicker options={profiles} initialIds={initial?.relatedProfileIds || []} label="和谁有关" />
+          <AssetPicker options={assets} initialIds={initial?.relatedAssetIds || defaultAssetIds} />
           <VisibilityControl initial={visibility} onChange={setVisibility} />
         </div>
 
@@ -221,7 +236,7 @@ export function TaskComposer({
           <FormMessage error={state.error} />
         </div>
 
-        <SaveBar note="周期待办完成后，会自动排到下一次，历史完成记录会保留。">
+        <SaveBar>
           <SubmitButton className="btn btn-primary btn-lg w-full sm:w-auto">
             <Sunrise size={16} /> {editing ? "保存待办" : "创建待办"}
           </SubmitButton>

@@ -31,10 +31,7 @@ export function ProfilePicker({
 
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="label mb-0">{label}</span>
-        <span className="text-[11px] text-faint">可选</span>
-      </div>
+      <span className="label">{label}</span>
       <input type="hidden" name={name} value={JSON.stringify(selected)} />
 
       {options.length === 0 ? (

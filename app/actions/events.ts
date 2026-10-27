@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/auth";
 import { dateInputToUtc, dayKey, localInputToUtc } from "@/lib/dates";
 import { cancelPendingNotifications, clearReminderRule, syncReminderNotifications } from "@/lib/reminders";
+import { validAssetIds } from "@/lib/asset-links";
 import {
   eventSchema,
   firstError,
@@ -21,6 +22,7 @@ function revalidateEventSurfaces() {
   revalidatePath("/today");
   revalidatePath("/my");
   revalidatePath("/profiles");
+  revalidatePath("/assets");
   revalidatePath("/notifications");
 }
 
@@ -82,6 +84,11 @@ export async function saveEventAction(
     context.household.id,
     formArray(formData, "relatedProfileIds"),
   );
+  const relatedAssetIds = await validAssetIds(
+    context.household.id,
+    context.user.id,
+    formArray(formData, "relatedAssetIds"),
+  );
   const offsets = data.reminderOffsets.filter((value) => value >= 0);
 
   let eventId = id;
@@ -111,6 +118,7 @@ export async function saveEventAction(
         visibility: data.visibility,
         status: "ACTIVE",
         relatedProfileIds: relatedProfileIds.length ? JSON.stringify(relatedProfileIds) : null,
+        relatedAssetIds: relatedAssetIds.length ? JSON.stringify(relatedAssetIds) : null,
       },
     });
   } else {
@@ -130,6 +138,7 @@ export async function saveEventAction(
         recurrenceUntil,
         visibility: data.visibility,
         relatedProfileIds: relatedProfileIds.length ? JSON.stringify(relatedProfileIds) : null,
+        relatedAssetIds: relatedAssetIds.length ? JSON.stringify(relatedAssetIds) : null,
       },
     });
     eventId = created.id;

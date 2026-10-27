@@ -36,7 +36,6 @@ export function SetupForm() {
           required
           maxLength={60}
         />
-        <p className="field-hint">只在你家内部显示，可以随时修改。</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

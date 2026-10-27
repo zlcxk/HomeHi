@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BookOpen,
+  Boxes,
   CalendarDays,
   Camera,
   ChevronRight,
@@ -36,6 +37,7 @@ const sideItems = [
   { href: "/calendar", label: "日历", icon: CalendarDays },
   { href: "/tasks", label: "待办", icon: ListTodo },
   { href: "/profiles", label: "家人与宠物", icon: Users },
+  { href: "/assets", label: "物品与资产", icon: Boxes },
   { href: "/search", label: "搜索", icon: Search },
 ];
 
@@ -92,6 +94,7 @@ export function AppNavigation({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch
                 className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition ${
                   isActive
                     ? "bg-surface font-semibold text-ink shadow-[0_1px_0_var(--line)]"
@@ -178,7 +181,6 @@ export function AppNavigation({
                   icon={<Camera size={20} strokeWidth={1.8} />}
                   tone="bg-accent-soft text-accent"
                   title="一个瞬间"
-                  description="一张照片，一句话，先存下来"
                 />
                 <ComposerLink
                   href="/compose/story"
@@ -186,7 +188,6 @@ export function AppNavigation({
                   icon={<PenLine size={20} strokeWidth={1.8} />}
                   tone="bg-sage-soft text-sage"
                   title="一篇手记"
-                  description="慢慢写，照片可以稍后补"
                 />
                 <ComposerLink
                   href="/compose/event"
@@ -194,7 +195,6 @@ export function AppNavigation({
                   icon={<CalendarDays size={20} strokeWidth={1.8} />}
                   tone="bg-[color-mix(in_srgb,var(--gold)_16%,transparent)] text-gold"
                   title="一件日程"
-                  description="生日、约会、家长会"
                 />
                 <ComposerLink
                   href="/compose/task"
@@ -202,13 +202,39 @@ export function AppNavigation({
                   icon={<ListTodo size={20} strokeWidth={1.8} />}
                   tone="bg-raised text-ink"
                   title="一件待办"
-                  description="需要做，但别一直记在脑子里"
+                />
+                <ComposerLink
+                  href="/assets/new"
+                  onClick={() => setOpen(false)}
+                  icon={<Boxes size={20} strokeWidth={1.8} />}
+                  tone="bg-raised text-muted"
+                  title="一件物品"
                 />
               </div>
 
-              <p className="mt-4 px-1 text-center text-[11px] leading-relaxed text-faint">
-                先保存，细节可以之后慢慢补。所有内容默认只在你家可见。
-              </p>
+              <div className="mt-4 grid grid-cols-5 gap-1 border-t border-line pt-3">
+                {[
+                  { href: "/calendar", label: "日历", icon: CalendarDays },
+                  { href: "/tasks", label: "待办", icon: ListTodo },
+                  { href: "/profiles", label: "家人", icon: Users },
+                  { href: "/assets", label: "物品", icon: Boxes },
+                  { href: "/search", label: "搜索", icon: Search },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      prefetch
+                      onClick={() => setOpen(false)}
+                      className="flex flex-col items-center gap-1 rounded-xl py-2 text-[10px] text-muted transition hover:bg-raised hover:text-ink"
+                    >
+                      <Icon size={17} strokeWidth={1.8} />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -229,6 +255,7 @@ function TabItem({
   return (
     <Link
       href={item.href}
+      prefetch
       className="tabbar-item"
       data-active={isActive}
       aria-current={isActive ? "page" : undefined}
@@ -244,14 +271,12 @@ function ComposerLink({
   icon,
   tone,
   title,
-  description,
   onClick,
 }: {
   href: string;
   icon: React.ReactNode;
   tone: string;
   title: string;
-  description: string;
   onClick: () => void;
 }) {
   return (
@@ -263,10 +288,7 @@ function ComposerLink({
       <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[15px] ${tone}`}>
         {icon}
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[14.5px] font-semibold leading-tight">{title}</span>
-        <span className="mt-0.5 block truncate text-[12px] text-faint">{description}</span>
-      </span>
+      <span className="min-w-0 flex-1 text-[14.5px] font-semibold leading-tight">{title}</span>
       <ChevronRight size={17} className="text-faint transition group-hover:translate-x-0.5 group-hover:text-muted" />
     </Link>
   );

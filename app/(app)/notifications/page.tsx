@@ -125,9 +125,7 @@ export default async function NotificationsPage({
         </Link>
         <p className="eyebrow">Reminders</p>
         <h1 className="font-display mt-1.5 text-[34px] leading-none tracking-tight">提醒记录</h1>
-        <p className="mt-1.5 text-[12px] text-muted">
-          发给你自己的邮件提醒。失败的会写明原因，修好邮件设置后可以在这里重试。
-        </p>
+        <p className="mt-1.5 text-[12px] text-muted">只显示发给你的邮件提醒。</p>
       </header>
 
       <div className="mb-5 flex flex-wrap gap-1.5">
@@ -149,7 +147,6 @@ export default async function NotificationsPage({
         <EmptyState
           icon={<BellRing strokeWidth={1.7} />}
           title="还没有提醒"
-          description="给日程或待办设置邮件提醒后，记录会出现在这里。需要先配置 SMTP 才能实际发出。"
           action={
             <Link href="/settings/email" className="btn btn-outline btn-sm">
               查看邮件设置

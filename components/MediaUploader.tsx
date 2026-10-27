@@ -128,6 +128,31 @@ async function extractVideoInfo(file: File): Promise<{
   });
 }
 
+const EXT_MIME: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  avif: "image/avif",
+  heic: "image/heic",
+  heif: "image/heif",
+  mp4: "video/mp4",
+  mov: "video/quicktime",
+  webm: "video/webm",
+  m4v: "video/x-m4v",
+};
+
+/** 有些手机浏览器上传时 file.type 是空的，按扩展名补一个。 */
+function uploadMime(file: File): string {
+  const type = (file.type || "").toLowerCase();
+  if (type && type !== "application/octet-stream") {
+    return type === "image/jpg" ? "image/jpeg" : type;
+  }
+  const ext = file.name.split(".").pop()?.toLowerCase() || "";
+  return EXT_MIME[ext] || type;
+}
+
 function uploadWithProgress(
   payload: FormData,
   onProgress: (percent: number) => void,
@@ -206,7 +231,8 @@ export function MediaUploader({
   const hiddenValue = single
     ? doneItems[0]?.media?.id || ""
     : JSON.stringify(doneItems.map((item) => item.media!.id));
-  const atLimit = items.length >= max;
+  // 单图模式允许直接替换：已有照片时按钮仍然可用，新文件会顶掉旧选择。
+  const atLimit = !single && items.length >= max;
 
   function trackObjectUrl(url: string) {
     objectUrls.current.add(url);
@@ -224,7 +250,7 @@ export function MediaUploader({
       height: null,
       durationSeconds: null,
     };
-    if (file.type.startsWith("video/")) {
+    if (uploadMime(file).startsWith("video/")) {
       info = await extractVideoInfo(file);
       if (info.poster) {
         const posterUrl = trackObjectUrl(URL.createObjectURL(info.poster));
@@ -254,10 +280,13 @@ export function MediaUploader({
 
   function addFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
-    const remaining = Math.max(0, max - items.length);
+    if (single) setItems([]);
+    const remaining = single ? 1 : Math.max(0, max - items.length);
     const files = Array.from(fileList).slice(0, remaining);
     for (const file of files) {
-      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) continue;
+      const type = uploadMime(file);
+      if (!type.startsWith("image/") && !type.startsWith("video/")) continue;
+      if (single && !type.startsWith("image/")) continue;
       if (file.size > 100 * 1024 * 1024) {
         const key = crypto.randomUUID();
         setItems((prev) => [
@@ -267,7 +296,7 @@ export function MediaUploader({
         continue;
       }
       const key = crypto.randomUUID();
-      const previewUrl = file.type.startsWith("image/")
+      const previewUrl = type.startsWith("image/")
         ? trackObjectUrl(URL.createObjectURL(file))
         : undefined;
       setItems((prev) => [
@@ -338,7 +367,7 @@ export function MediaUploader({
       <input
         ref={libraryRef}
         type="file"
-        accept="image/*,video/*"
+        accept={single ? "image/*" : "image/*,video/*"}
         multiple={!single}
         className="sr-only"
         onChange={(event) => addFiles(event.target.files)}
@@ -373,10 +402,12 @@ export function MediaUploader({
           <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-raised text-muted">
             <ImagePlus size={19} strokeWidth={1.7} />
           </div>
-          <p className="text-[13.5px] font-medium">{single ? "选择一张照片" : "先把画面放进来"}</p>
-          <p className="mt-1 mb-4 text-[11.5px] leading-relaxed text-faint">
-            {hint || "照片、视频都可以，之后还能补充文字和人物。"}
-          </p>
+          <p className="text-[13.5px] font-medium">{single ? "选择一张照片" : "添加照片"}</p>
+          {hint ? (
+            <p className="mt-1 mb-4 text-[11.5px] leading-relaxed text-faint">{hint}</p>
+          ) : (
+            <div className="mb-3" />
+          )}
           {uploadButtons}
         </div>
       ) : (
@@ -503,26 +534,47 @@ export function MediaUploader({
 
           <div className="mt-2.5 flex items-center justify-between gap-3">
             <p className="text-[11px] text-faint">
-              {doneItems.length}/{max} · 第一张作为封面
+              {single ? "已选 1 张" : `${doneItems.length}/${max} · 第一张作为封面`}
             </p>
             <div className="flex items-center gap-2">
-              {doneItems.length > 1 ? (
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setReorder((value) => !value)}
-                >
-                  {reorder ? "完成排序" : "调整顺序"}
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={() => libraryRef.current?.click()}
-                disabled={atLimit}
-              >
-                <Plus size={14} /> 添加
-              </button>
+              {single ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => cameraRef.current?.click()}
+                  >
+                    <Camera size={14} /> 拍照
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => libraryRef.current?.click()}
+                  >
+                    <ImagePlus size={14} /> 更换
+                  </button>
+                </>
+              ) : (
+                <>
+                  {doneItems.length > 1 ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setReorder((value) => !value)}
+                    >
+                      {reorder ? "完成排序" : "调整顺序"}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => libraryRef.current?.click()}
+                    disabled={atLimit}
+                  >
+                    <Plus size={14} /> 添加
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

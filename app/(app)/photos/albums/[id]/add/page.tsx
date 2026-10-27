@@ -38,7 +38,6 @@ export default async function AddAlbumMediaPage({ params }: { params: Promise<{ 
         </Link>
         <p className="eyebrow">Add photos</p>
         <h1 className="font-display mt-1 text-[32px] leading-tight">放进「{album.name}」</h1>
-        <p className="mt-1.5 text-[12.5px] text-muted">选中的照片会加入相册，原来的记录不受影响。</p>
       </header>
 
       <MediaPicker

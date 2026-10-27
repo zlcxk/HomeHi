@@ -112,6 +112,26 @@ export const profileSchema = z.object({
   avatarMediaId: z.string().optional().default(""),
 });
 
+export const assetSchema = z.object({
+  name: z.string().trim().min(1, "请填写物品名称").max(80, "名称过长"),
+  category: z.enum(["APPLIANCE", "ELECTRONICS", "FURNITURE", "VEHICLE", "TOOL", "DOCUMENT", "OTHER"]),
+  status: z.enum(["ACTIVE", "REPAIRED", "RETIRED", "SOLD"]),
+  brand: z.string().max(80).optional().default(""),
+  model: z.string().max(80).optional().default(""),
+  serialNumber: z.string().max(120).optional().default(""),
+  location: z.string().max(120).optional().default(""),
+  purchaseDate: z.string().optional().default(""),
+  purchasePrice: z.string().optional().default(""),
+  vendor: z.string().max(120).optional().default(""),
+  warrantyUntil: z.string().optional().default(""),
+  maintenanceEveryDays: z.string().optional().default(""),
+  insuranceUntil: z.string().optional().default(""),
+  insuranceProvider: z.string().max(120).optional().default(""),
+  notes: z.string().max(4000).optional().default(""),
+  photoMediaId: z.string().optional().default(""),
+  visibility: z.enum(["HOUSEHOLD", "PRIVATE"]),
+});
+
 export const albumSchema = z.object({
   name: z.string().trim().min(1, "请填写相册名称").max(60, "名称过长"),
   description: z.string().max(500).optional().default(""),

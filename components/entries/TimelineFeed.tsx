@@ -82,7 +82,7 @@ export function TimelineFeed({
       <EmptyState
         icon={<PenLine strokeWidth={1.7} />}
         title="这里还空着"
-        description="先记下一个瞬间，或者写几句今天发生的事。日子会慢慢攒起来。"
+        description="记下第一个瞬间。"
       />
     );
   }

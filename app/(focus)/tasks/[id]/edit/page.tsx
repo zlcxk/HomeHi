@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { toDateInput, toLocalInput } from "@/lib/dates";
 import { parseStringArray } from "@/lib/json";
 import { parseOffsets } from "@/lib/reminders";
-import { profileOptions, memberOptions } from "@/lib/view";
+import { assetOptions, profileOptions, memberOptions } from "@/lib/view";
 import { smtpStatus } from "@/lib/mailer";
 import { TaskComposer, type TaskInitial } from "@/components/compose/TaskComposer";
 
@@ -22,9 +22,10 @@ export default async function EditTaskPage({ params }: { params: Promise<{ id: s
   });
   if (!task) notFound();
 
-  const [profiles, members, rule] = await Promise.all([
+  const [profiles, members, assets, rule] = await Promise.all([
     profileOptions(context),
     memberOptions(context),
+    assetOptions(context),
     prisma.reminderRule.findUnique({
       where: { targetType_targetId: { targetType: "TASK", targetId: id } },
     }),
@@ -43,12 +44,14 @@ export default async function EditTaskPage({ params }: { params: Promise<{ id: s
     visibility: task.visibility,
     reminderOffsets: rule?.enabled ? parseOffsets(rule.offsets) : [],
     relatedProfileIds: parseStringArray(task.relatedProfileIds),
+    relatedAssetIds: parseStringArray(task.relatedAssetIds),
   };
 
   return (
     <TaskComposer
       profiles={profiles}
       members={members}
+      assets={assets}
       defaultVisibility={context.user.defaultVisibility}
       smtpConfigured={smtpStatus().configured}
       initial={initial}

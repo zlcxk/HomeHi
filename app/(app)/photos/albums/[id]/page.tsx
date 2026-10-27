@@ -87,7 +87,7 @@ export default async function AlbumDetailPage({ params }: { params: Promise<{ id
         <EmptyState
           icon={<ImagePlus strokeWidth={1.7} />}
           title="这个相册还空着"
-          description="从照片墙里挑几张放进来，把一段日子收在一起。"
+          description="从照片墙里挑几张放进来。"
           action={
             <Link href={`/photos/albums/${album.id}/add`} className="btn btn-primary btn-sm">
               挑选照片

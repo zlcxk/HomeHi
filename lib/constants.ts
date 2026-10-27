@@ -72,7 +72,7 @@ export const MEDIA_IMAGE_TYPES = [
   "image/avif",
 ] as const;
 
-export const MEDIA_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"] as const;
+export const MEDIA_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm", "video/x-m4v"] as const;
 
 export const MIME_EXTENSION: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -83,6 +83,7 @@ export const MIME_EXTENSION: Record<string, string> = {
   "video/mp4": "mp4",
   "video/quicktime": "mov",
   "video/webm": "webm",
+  "video/x-m4v": "m4v",
 };
 
 export const DEMO_SETTING_KEY = "demo_seeded";

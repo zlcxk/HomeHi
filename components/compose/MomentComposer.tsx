@@ -46,7 +46,7 @@ export function MomentComposer({
             visibility={visibility}
             max={12}
             onBusyChange={setBusy}
-            hint="拍一张，或者从相册里选几张。先存下来，文字之后补也可以。"
+            hint="拍照或从相册选择"
           />
         </div>
 
@@ -56,8 +56,6 @@ export function MomentComposer({
           placeholder="这一刻，想记住什么？"
           className="mt-6 min-h-[76px] w-full resize-none border-0 bg-transparent p-0 font-display text-[23px] leading-[1.45] outline-none placeholder:text-faint"
         />
-
-        <p className="mt-1 text-[11px] text-faint">一句话就够了，不写也可以。</p>
 
         <details className="group card mt-7 overflow-hidden">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
@@ -91,7 +89,7 @@ export function MomentComposer({
           <FormMessage error={state.error} />
         </div>
 
-        <SaveBar note="照片和文字都可以之后再补充。">
+        <SaveBar>
           <SubmitButton className="btn btn-primary btn-lg w-full sm:w-auto" disabled={busy}>
             {busy ? "照片上传中…" : "记下这一刻"}
           </SubmitButton>

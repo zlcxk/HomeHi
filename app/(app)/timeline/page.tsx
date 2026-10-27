@@ -75,7 +75,6 @@ export default async function TimelinePage({
       <PageHeader
         title="时光"
         eyebrow="The days we kept"
-        description={filtered ? "正在筛选记录。" : "所有被留下的瞬间和手记，按发生的时间排在一起。"}
         action={
           <Link href="/compose/story" className="btn btn-outline btn-sm">
             <PenLine size={15} /> 写手记

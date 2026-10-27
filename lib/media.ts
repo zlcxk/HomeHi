@@ -14,6 +14,34 @@ import type { AppContext } from "@/lib/auth";
 
 const IMAGE_TYPES = new Set<string>(MEDIA_IMAGE_TYPES);
 const VIDEO_TYPES = new Set<string>(MEDIA_VIDEO_TYPES);
+const HEIC_TYPES = new Set(["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"]);
+
+const EXT_MIME: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  avif: "image/avif",
+  heic: "image/heic",
+  heif: "image/heif",
+  mp4: "video/mp4",
+  mov: "video/quicktime",
+  webm: "video/webm",
+  m4v: "video/x-m4v",
+};
+
+/**
+ * 手机浏览器有时拿不到 file.type，或者给出 image/jpg 这类别名。
+ * 这里统一成服务端认识的标准 MIME，避免“明明选了照片却提示不支持”。
+ */
+export function resolveUploadMime(type: string | null | undefined, filename: string): string {
+  const raw = (type || "").toLowerCase();
+  if (raw === "image/jpg") return "image/jpeg";
+  if (raw && raw !== "application/octet-stream") return raw;
+  const ext = filename.split(".").pop()?.toLowerCase() || "";
+  return EXT_MIME[ext] || raw || "application/octet-stream";
+}
 
 export function maxUploadBytes(): number {
   const mb = Number(process.env.MAX_UPLOAD_MB || 100);
@@ -106,9 +134,12 @@ export async function processMediaUpload(
   if (file.size > maxUploadBytes()) {
     throw new Error(`文件超过 ${Math.round(maxUploadBytes() / 1024 / 1024)} MB 上限`);
   }
-  const mime = file.type || "application/octet-stream";
+  const mime = resolveUploadMime(file.type, file.name);
+  if (HEIC_TYPES.has(mime)) {
+    throw new Error("iPhone 的 HEIC 照片暂不能直接上传。请在相册导出为 JPG，或改用「拍照」按钮");
+  }
   if (!isAllowedMime(mime)) {
-    throw new Error("暂不支持这种文件类型，请上传 JPG / PNG / WebP / GIF / MP4 / MOV / WebM");
+    throw new Error("暂不支持这种文件类型，请上传 JPG / PNG / WebP / GIF / MP4 / MOV / M4V / WebM");
   }
   if (poster && !IMAGE_TYPES.has(poster.type)) {
     throw new Error("视频封面格式不正确");

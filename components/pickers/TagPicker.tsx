@@ -30,10 +30,7 @@ export function TagPicker({
 
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="label mb-0">标签</span>
-        <span className="text-[11px] text-faint">可选</span>
-      </div>
+      <span className="label">标签</span>
       <input type="hidden" name={name} value={JSON.stringify(selected)} />
 
       <div className="flex flex-wrap items-center gap-1.5">

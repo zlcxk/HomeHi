@@ -74,7 +74,7 @@ export default async function MyPage() {
 
   return (
     <div>
-      <PageHeader title="我的" eyebrow="Home" description={`${context.household.name} · 数据只属于你们`} />
+      <PageHeader title="我的" eyebrow="Home" description={context.household.name} />
 
       <Link
         href={profile ? `/profiles/${profile.id}` : "/profiles"}

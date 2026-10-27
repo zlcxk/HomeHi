@@ -47,7 +47,7 @@ export function HouseholdForm({
               </option>
             ))}
           </select>
-          <p className="field-hint">所有日期和提醒时间都按这个时区显示。修改后历史时间会重新换算显示。</p>
+          <p className="field-hint">所有日期和提醒都按这个时区显示。</p>
         </div>
         <FormMessage error={state.error} success={state.success} />
       </div>
