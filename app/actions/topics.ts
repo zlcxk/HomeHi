@@ -27,6 +27,13 @@ function refreshTopicPaths(topicId?: string) {
   if (topicId) revalidatePath(`/topics/${topicId}`);
 }
 
+/** 从议题编辑模式触发的操作，处理完留在编辑页，而不是把用户带回阅读页。 */
+function topicPathAfterAction(topicId: string, formData: FormData) {
+  return formString(formData, "returnTo") === "edit"
+    ? `/topics/${topicId}?edit=1`
+    : `/topics/${topicId}`;
+}
+
 async function topicForHousehold(topicId: string, householdId: string) {
   return prisma.topic.findFirst({
     where: { id: topicId, householdId },
@@ -81,6 +88,38 @@ export async function createTopicAction(
   redirect(`/topics/${topic.id}`);
 }
 
+export async function updateTopicAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const context = await getContext();
+  if (!context) return { error: "登录已失效，请重新登录" };
+
+  const parsed = topicSchema.safeParse({
+    title: formString(formData, "title"),
+    description: formString(formData, "description"),
+  });
+  if (!parsed.success) return { error: firstError(parsed.error) };
+  const data = parsed.data;
+
+  const topic = await topicForHousehold(formString(formData, "topicId"), context.household.id);
+  if (!topic) return { error: "议题不存在或已删除" };
+  if (!canManage(topic, context)) {
+    return { error: "只有发起人或家庭管理员可以编辑议题" };
+  }
+
+  await prisma.topic.update({
+    where: { id: topic.id },
+    data: {
+      title: data.title,
+      description: data.description || null,
+    },
+  });
+
+  refreshTopicPaths(topic.id);
+  return { success: "议题已经更新" };
+}
+
 export async function addTopicNoteAction(
   _prev: ActionState,
   formData: FormData,
@@ -120,12 +159,12 @@ export async function deleteTopicNoteAction(formData: FormData): Promise<void> {
     note.topic.householdId !== context.household.id ||
     !canEditItem(note.userId, note.topic, context)
   ) {
-    redirect(note ? `/topics/${note.topic.id}` : "/topics");
+    redirect(note ? topicPathAfterAction(note.topic.id, formData) : "/topics");
   }
 
   await prisma.topicNote.delete({ where: { id: note.id } });
   refreshTopicPaths(note.topic.id);
-  redirect(`/topics/${note.topic.id}`);
+  redirect(topicPathAfterAction(note.topic.id, formData));
 }
 
 export async function addTopicOpinionAction(
@@ -216,12 +255,12 @@ export async function deleteTopicLinkAction(formData: FormData): Promise<void> {
     link.topic.householdId !== context.household.id ||
     !canEditItem(link.createdBy, link.topic, context)
   ) {
-    redirect(link ? `/topics/${link.topic.id}` : "/topics");
+    redirect(link ? topicPathAfterAction(link.topic.id, formData) : "/topics");
   }
 
   await prisma.topicLink.delete({ where: { id: link.id } });
   refreshTopicPaths(link.topic.id);
-  redirect(`/topics/${link.topic.id}`);
+  redirect(topicPathAfterAction(link.topic.id, formData));
 }
 
 export async function addTopicDateAction(
@@ -274,12 +313,12 @@ export async function deleteTopicDateAction(formData: FormData): Promise<void> {
     date.topic.householdId !== context.household.id ||
     !canEditItem(date.createdBy, date.topic, context)
   ) {
-    redirect(date ? `/topics/${date.topic.id}` : "/topics");
+    redirect(date ? topicPathAfterAction(date.topic.id, formData) : "/topics");
   }
 
   await prisma.topicDate.delete({ where: { id: date.id } });
   refreshTopicPaths(date.topic.id);
-  redirect(`/topics/${date.topic.id}`);
+  redirect(topicPathAfterAction(date.topic.id, formData));
 }
 
 export async function linkTopicTaskAction(formData: FormData): Promise<void> {
@@ -298,7 +337,7 @@ export async function linkTopicTaskAction(formData: FormData): Promise<void> {
     },
     select: { id: true },
   });
-  if (!task) redirect(`/topics/${topic.id}`);
+  if (!task) redirect(topicPathAfterAction(topic.id, formData));
 
   const exists = await prisma.topicTask.findUnique({
     where: { topicId_taskId: { topicId: topic.id, taskId: task.id } },
@@ -309,7 +348,7 @@ export async function linkTopicTaskAction(formData: FormData): Promise<void> {
   }
 
   refreshTopicPaths(topic.id);
-  redirect(`/topics/${topic.id}`);
+  redirect(topicPathAfterAction(topic.id, formData));
 }
 
 export async function unlinkTopicTaskAction(formData: FormData): Promise<void> {
@@ -323,7 +362,7 @@ export async function unlinkTopicTaskAction(formData: FormData): Promise<void> {
 
   await prisma.topicTask.deleteMany({ where: { topicId: topic.id, taskId } });
   refreshTopicPaths(topic.id);
-  redirect(`/topics/${topic.id}`);
+  redirect(topicPathAfterAction(topic.id, formData));
 }
 
 export async function deleteTopicAttachmentAction(formData: FormData): Promise<void> {
@@ -340,13 +379,13 @@ export async function deleteTopicAttachmentAction(formData: FormData): Promise<v
     attachment.topic.householdId !== context.household.id ||
     !canEditItem(attachment.uploadedBy, attachment.topic, context)
   ) {
-    redirect(attachment ? `/topics/${attachment.topic.id}` : "/topics");
+    redirect(attachment ? topicPathAfterAction(attachment.topic.id, formData) : "/topics");
   }
 
   await prisma.topicAttachment.delete({ where: { id: attachment.id } });
   await removeStoredFile(attachment.storageKey, attachment.storageDriver).catch(() => {});
   refreshTopicPaths(attachment.topic.id);
-  redirect(`/topics/${attachment.topic.id}`);
+  redirect(topicPathAfterAction(attachment.topic.id, formData));
 }
 
 export async function saveTopicDecisionAction(
