@@ -76,7 +76,11 @@ async function extractVideoInfo(file: File): Promise<{
 
     video.onloadedmetadata = () => {
       try {
-        video.currentTime = Math.min(0.15, Math.max(0.01, (video.duration || 1) / 3));
+        const duration = Number.isFinite(video.duration) ? video.duration : 0;
+        // 跳过开头和结尾各 15%，在中间随机取一帧作为封面。
+        const start = duration > 2 ? duration * 0.15 : 0.01;
+        const end = duration > 2 ? duration * 0.85 : Math.max(start, duration - 0.05);
+        video.currentTime = start + Math.random() * Math.max(0, end - start);
       } catch {
         finish({
           width: video.videoWidth || null,

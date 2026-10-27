@@ -31,7 +31,6 @@ export function TopicDateForm({ topicId }: { topicId: string }) {
             name="label"
             maxLength={40}
             required
-            placeholder="出发日期、交房日…"
             className="field"
           />
         </div>

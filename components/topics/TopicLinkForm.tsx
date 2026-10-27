@@ -48,7 +48,7 @@ export function TopicLinkForm({ topicId }: { topicId: string }) {
         maxLength={3000}
         value={text}
         onChange={(event) => updateText(event.target.value)}
-        placeholder="粘贴网址，或直接贴小红书、抖音等 App 的分享文案"
+        placeholder="粘贴链接或分享文案"
         className="field resize-y"
       />
 
@@ -63,7 +63,7 @@ export function TopicLinkForm({ topicId }: { topicId: string }) {
           ) : null}
         </div>
       ) : text.trim().length > 0 ? (
-        <p className="mt-2 text-[10.5px] text-faint">还没有识别到链接，可以直接粘贴完整网址。</p>
+        <p className="mt-2 text-[10.5px] text-faint">未识别到链接</p>
       ) : null}
 
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -90,8 +90,7 @@ export function TopicLinkForm({ topicId }: { topicId: string }) {
         />
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <span className="text-[10.5px] text-faint">链接会保存在这个议题里</span>
+      <div className="mt-3 flex items-center justify-end gap-3">
         <SubmitButton className="btn btn-primary btn-sm" pendingText="保存中…">
           保存链接
         </SubmitButton>

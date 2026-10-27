@@ -39,10 +39,7 @@ export function TopicAttachmentUploader({ topicId }: { topicId: string }) {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-[12px] font-medium">保存文件</p>
-          <p className="mt-0.5 text-[10.5px] text-faint">合同、报价单、照片都可以放在这里</p>
-        </div>
+        <p className="text-[12px] font-medium">保存文件</p>
         <label
           className={`btn btn-outline btn-sm cursor-pointer ${pending ? "pointer-events-none opacity-60" : ""}`}
         >

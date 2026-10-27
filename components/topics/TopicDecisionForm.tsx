@@ -45,10 +45,6 @@ export function TopicDecisionForm({
         aria-label="结果与后续"
       />
 
-      <p className="mt-2 text-[10.5px] leading-relaxed text-faint">
-        保存后议题会标记为「已决定」并结束讨论，决定会一直留在议题顶部。
-      </p>
-
       <div className="mt-3 flex justify-end">
         <SubmitButton className="btn btn-primary btn-sm" pendingText="保存中…">
           保存决定

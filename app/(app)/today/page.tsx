@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Clock,
   ListTodo,
+  MessagesSquare,
   PenLine,
   Plus,
   Sparkles,
@@ -43,7 +44,7 @@ export default async function TodayPage() {
   const dayEnd = dayStart.endOf("day");
   const weekEnd = dayStart.plus({ days: 7 }).endOf("day");
 
-  const [events, tasks, profiles, recentRows, onThisDayRows, photos, demoSetting] = await Promise.all([
+  const [events, tasks, profiles, topics, recentRows, onThisDayRows, photos, demoSetting] = await Promise.all([
     prisma.calendarEvent.findMany({
       where: {
         householdId: context.household.id,
@@ -80,6 +81,16 @@ export default async function TodayPage() {
         OR: [{ visibility: "HOUSEHOLD" }, { linkedUserId: context.user.id }],
       },
       select: { id: true, name: true, birthday: true, profileType: true },
+    }),
+    prisma.topic.findMany({
+      where: { householdId: context.household.id, status: "OPEN" },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+      select: {
+        id: true,
+        title: true,
+        _count: { select: { notes: true, opinions: true, links: true, attachments: true } },
+      },
     }),
     prisma.entry.findMany({
       where: publishedEntryWhere(viewer),
@@ -201,7 +212,11 @@ export default async function TodayPage() {
   const overdueCount = todayItems.filter((item) => item.overdue).length;
   const firstName = context.user.displayName.trim().split(/\s+/)[0] || context.user.displayName;
   const hasAnything =
-    todayItems.length > 0 || birthdaysToday.length > 0 || recent.length > 0 || onThisDay.length > 0;
+    todayItems.length > 0 ||
+    birthdaysToday.length > 0 ||
+    recent.length > 0 ||
+    onThisDay.length > 0 ||
+    topics.length > 0;
 
   return (
     <div>
@@ -341,6 +356,38 @@ export default async function TodayPage() {
           </div>
         )}
       </section>
+
+      {topics.length > 0 ? (
+        <section className="mb-9">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="font-display text-[19px] leading-tight">正在讨论</h2>
+            <Link href="/topics" className="text-[11.5px] text-faint transition hover:text-ink">
+              全部
+            </Link>
+          </div>
+          <div className="card divide-y divide-line overflow-hidden">
+            {topics.map((topic) => (
+              <Link
+                key={topic.id}
+                href={`/topics/${topic.id}`}
+                className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-raised/60"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+                  <MessagesSquare size={14} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13.5px] font-medium">{topic.title}</p>
+                  <p className="mt-0.5 text-[10.5px] text-faint">
+                    想法 {topic._count.notes} · 意见 {topic._count.opinions} · 资料{" "}
+                    {topic._count.links + topic._count.attachments}
+                  </p>
+                </div>
+                <ArrowRight size={14} className="shrink-0 text-faint" />
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {onThisDay.length > 0 ? (
         <section className="mb-9">

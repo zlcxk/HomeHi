@@ -252,9 +252,7 @@ export default async function TopicDetailPage({ params }: { params: Promise<{ id
               );
             })}
           </div>
-        ) : (
-          <p className="mb-3 text-[11.5px] text-faint">还没有日期，可以记下出发、截止或纪念日。</p>
-        )}
+        ) : null}
         <TopicDateForm topicId={topic.id} />
       </section>
 
@@ -311,9 +309,7 @@ export default async function TopicDetailPage({ params }: { params: Promise<{ id
               </div>
             ))}
           </div>
-        ) : (
-          <p className="mb-3 text-[11.5px] text-faint">还没有人表态，可以先说说你的倾向。</p>
-        )}
+        ) : null}
 
         {topic.opinions.length > 0 ? (
           <div className="mb-3 space-y-2">
@@ -402,9 +398,7 @@ export default async function TopicDetailPage({ params }: { params: Promise<{ id
               </div>
             ))}
           </div>
-        ) : (
-          <p className="mt-3 text-[11.5px] text-faint">还没有保存链接，可以把攻略、报价或分享链接贴进来。</p>
-        )}
+        ) : null}
       </section>
 
       <section className="mt-8">
@@ -494,9 +488,7 @@ export default async function TopicDetailPage({ params }: { params: Promise<{ id
               );
             })}
           </div>
-        ) : (
-          <p className="mb-3 text-[11.5px] text-faint">还没有关联待办，可以把要跟进的事接进来。</p>
-        )}
+        ) : null}
 
         <div className="mt-3 card p-4">
           <p className="label">关联一件待办</p>
@@ -519,13 +511,7 @@ export default async function TopicDetailPage({ params }: { params: Promise<{ id
               </SubmitButton>
             </form>
           ) : (
-            <p className="text-[11.5px] text-faint">
-              没有可关联的待办。可以先到{" "}
-              <Link href="/compose/task" className="font-medium text-accent">
-                待办
-              </Link>{" "}
-              里添加一件。
-            </p>
+            <p className="text-[11.5px] text-faint">没有可关联的待办</p>
           )}
         </div>
       </section>

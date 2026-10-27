@@ -29,11 +29,10 @@ export function TopicNoteForm({ topicId }: { topicId: string }) {
         maxLength={1000}
         value={body}
         onChange={(event) => setBody(event.target.value)}
-        placeholder="补充背景、记下顾虑，或者贴一段还没想清楚的话…"
+        placeholder="写点什么"
         className="field resize-y"
       />
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <span className="text-[10.5px] text-faint">家人都会看到这条记录</span>
+      <div className="mt-3 flex items-center justify-end gap-3">
         <SubmitButton className="btn btn-primary btn-sm" pendingText="记下中…">
           记下想法
         </SubmitButton>

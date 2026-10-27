@@ -48,7 +48,7 @@ export function TopicOpinionForm({ topicId }: { topicId: string }) {
         onChange={(event) => setBody(event.target.value)}
         rows={3}
         maxLength={500}
-        placeholder="说说你的想法…"
+        placeholder="写点什么"
         className="field mt-3 resize-y"
         aria-label="你的看法"
       />

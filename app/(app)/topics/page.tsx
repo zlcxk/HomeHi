@@ -170,7 +170,6 @@ export default async function TopicsPage() {
       <PageHeader
         title="家庭议题"
         eyebrow="Family topics"
-        description="把想一起商量的事放上来，记录想法、链接和文件，最后留下家人的决定。"
         action={
           <Link href="/compose/topic" className="btn btn-primary btn-sm">
             <Plus size={14} /> 发起议题
@@ -182,7 +181,6 @@ export default async function TopicsPage() {
         <EmptyState
           icon={<MessagesSquare strokeWidth={1.7} />}
           title="还没有议题"
-          description="装修、旅行、要不要养宠物……把需要一起决定的事写下来，家人可以补充看法、链接和重要日期。"
           action={
             <Link href="/compose/topic" className="btn btn-primary btn-sm">
               <Plus size={14} /> 发起第一个议题
@@ -198,7 +196,6 @@ export default async function TopicsPage() {
                   正在讨论
                   <span className="ml-1.5 font-normal text-faint">{openTopics.length}</span>
                 </h2>
-                <span className="text-[10.5px] text-faint">点开补充想法和资料</span>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {openTopics.map((topic) => (
