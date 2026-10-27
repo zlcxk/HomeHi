@@ -6,6 +6,7 @@ import { ArrowLeft, Boxes } from "lucide-react";
 import { saveAssetAction } from "@/app/actions/assets";
 import { MediaUploader } from "@/components/MediaUploader";
 import { SaveBar } from "@/components/compose/SaveBar";
+import { LocationField } from "@/components/pickers/LocationField";
 import { VisibilityControl } from "@/components/pickers/VisibilityControl";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -185,19 +186,11 @@ export function AssetForm({
             />
           </div>
 
-          <div>
-            <label className="label" htmlFor="asset-location">
-              放在哪里
-            </label>
-            <input
-              id="asset-location"
-              name="location"
-              defaultValue={initial?.location || ""}
-              placeholder="客厅、储藏室…"
-              maxLength={120}
-              className="field"
-            />
-          </div>
+          <LocationField
+            defaultValue={initial?.location || ""}
+            label="放在哪里"
+            placeholder="客厅、储藏室…"
+          />
         </div>
 
         <div className="card mt-6 p-4">

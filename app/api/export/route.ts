@@ -45,6 +45,7 @@ export async function GET() {
     rules,
     notifications,
     settings,
+    topics,
   ] = await Promise.all([
     prisma.household.findUnique({ where: { id: householdId } }),
     prisma.householdMember.findMany({
@@ -76,6 +77,14 @@ export async function GET() {
     prisma.reminderRule.findMany({ where: { householdId } }),
     prisma.notification.findMany({ where: { householdId }, orderBy: { scheduledAt: "asc" } }),
     prisma.appSetting.findMany({ where: { householdId } }),
+    prisma.topic.findMany({
+      where: { householdId },
+      include: {
+        contents: { orderBy: { sortOrder: "asc" } },
+        opinions: { orderBy: { createdAt: "asc" } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   const data = {
@@ -128,6 +137,7 @@ export async function GET() {
     reminderRules: rules,
     notifications,
     settings,
+    topics,
   };
 
   const archive = new ZipArchive({ zlib: { level: 6 } });

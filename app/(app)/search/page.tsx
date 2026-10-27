@@ -45,16 +45,11 @@ function SearchForm({ q, type, autoFocus = false }: { q: string; type: string; a
           搜索
         </button>
       </div>
-      <div className="mt-1.5 flex items-center gap-2 border-t border-line px-1.5 pt-2.5">
+      <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-line px-1.5 pt-2">
         <label htmlFor="search-type" className="text-[11px] text-faint">
           范围
         </label>
-        <select
-          id="search-type"
-          name="type"
-          defaultValue={type}
-          className="min-w-0 flex-1 border-0 bg-transparent py-1 text-[12px] text-ink outline-none"
-        >
+        <select id="search-type" name="type" defaultValue={type} className="select-inline max-w-[62%]">
           {SEARCH_TYPES.map((item) => (
             <option key={item.value} value={item.value}>
               {item.label}

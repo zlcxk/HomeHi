@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Images,
   ListTodo,
+  MessagesSquare,
   PenLine,
   Plus,
   Search,
@@ -36,6 +37,7 @@ const sideItems = [
   { href: "/photos", label: "照片", icon: Images },
   { href: "/calendar", label: "日历", icon: CalendarDays },
   { href: "/tasks", label: "待办", icon: ListTodo },
+  { href: "/topics", label: "家庭议题", icon: MessagesSquare },
   { href: "/profiles", label: "家人与宠物", icon: Users },
   { href: "/assets", label: "物品与资产", icon: Boxes },
   { href: "/search", label: "搜索", icon: Search },
@@ -204,6 +206,13 @@ export function AppNavigation({
                   title="一件待办"
                 />
                 <ComposerLink
+                  href="/compose/topic"
+                  onClick={() => setOpen(false)}
+                  icon={<MessagesSquare size={20} strokeWidth={1.8} />}
+                  tone="bg-sage-soft text-sage"
+                  title="一个议题"
+                />
+                <ComposerLink
                   href="/assets/new"
                   onClick={() => setOpen(false)}
                   icon={<Boxes size={20} strokeWidth={1.8} />}
@@ -212,10 +221,11 @@ export function AppNavigation({
                 />
               </div>
 
-              <div className="mt-4 grid grid-cols-5 gap-1 border-t border-line pt-3">
+              <div className="mt-4 grid grid-cols-6 gap-1 border-t border-line pt-3">
                 {[
                   { href: "/calendar", label: "日历", icon: CalendarDays },
                   { href: "/tasks", label: "待办", icon: ListTodo },
+                  { href: "/topics", label: "议题", icon: MessagesSquare },
                   { href: "/profiles", label: "家人", icon: Users },
                   { href: "/assets", label: "物品", icon: Boxes },
                   { href: "/timeline", label: "时光", icon: BookOpen },

@@ -36,6 +36,8 @@ model User {
   taskCompletions TaskCompletion[]
   linkedProfiles  FamilyProfile[]    @relation("ProfileUser")
   assets          Asset[]            @relation("AssetCreator")
+  topics          Topic[]
+  topicOpinions   TopicOpinion[]
 }
 
 model Household {
@@ -57,6 +59,7 @@ model Household {
   notifications Notification[]
   settings      AppSetting[]
   assets        Asset[]
+  topics        Topic[]
 }
 
 model HouseholdMember {
@@ -129,6 +132,61 @@ model Asset {
   @@index([householdId, category])
   @@index([householdId, warrantyUntil])
   @@index([householdId, insuranceUntil])
+}
+
+model Topic {
+  id              String    @id @default(cuid())
+  householdId     String
+  createdBy       String
+  title           String
+  description     String?
+  keyword         String?
+  status          String    @default("OPEN") // OPEN | CLOSED
+  trendsFetchedAt DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  creator   User           @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  contents  TopicContent[]
+  opinions  TopicOpinion[]
+
+  @@index([householdId, status, createdAt])
+}
+
+model TopicContent {
+  id          String    @id @default(cuid())
+  topicId     String
+  title       String
+  url         String
+  platform    String?
+  author      String?
+  heat        String?
+  summary     String?
+  coverUrl    String?
+  publishedAt DateTime?
+  sortOrder   Int       @default(0)
+  fetchedAt   DateTime  @default(now())
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([topicId, url])
+  @@index([topicId, sortOrder])
+}
+
+model TopicOpinion {
+  id        String   @id @default(cuid())
+  topicId   String
+  userId    String
+  stance    String   @default("NEUTRAL") // AGREE | NEUTRAL | CONCERN
+  body      String
+  createdAt DateTime @default(now())
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([topicId, createdAt])
 }
 
 model Entry {

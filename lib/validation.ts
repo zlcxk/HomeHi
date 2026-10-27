@@ -134,6 +134,18 @@ export const assetSchema = z.object({
   visibility: z.enum(["HOUSEHOLD", "PRIVATE"]),
 });
 
+export const topicSchema = z.object({
+  title: z.string().trim().min(2, "议题至少写 2 个字").max(80, "议题标题过长"),
+  description: z.string().max(2000, "说明过长").optional().default(""),
+  keyword: z.string().max(40, "关键词过长").optional().default(""),
+});
+
+export const topicOpinionSchema = z.object({
+  topicId: z.string().min(1),
+  stance: z.enum(["AGREE", "NEUTRAL", "CONCERN"]),
+  body: z.string().trim().min(1, "写一句你的想法").max(500, "最多 500 字"),
+});
+
 export const albumSchema = z.object({
   name: z.string().trim().min(1, "请填写相册名称").max(60, "名称过长"),
   description: z.string().max(500).optional().default(""),

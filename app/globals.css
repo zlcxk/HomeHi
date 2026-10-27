@@ -368,11 +368,58 @@ textarea.field {
   padding-bottom: 0.8rem;
 }
 
-select.field {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%239b9385' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+select.field,
+.select-inline {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%239b9385' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.9rem center;
+  background-size: 15px 15px;
+}
+
+select.field {
   padding-right: 2.4rem;
+}
+
+.select-inline {
+  display: inline-flex;
+  align-items: center;
+  height: 31px;
+  padding: 0 1.75rem 0 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--raised) 55%, var(--surface));
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  background-position: right 0.7rem center;
+  background-size: 14px 14px;
+  transition: border-color 0.16s, background 0.16s, box-shadow 0.16s;
+}
+
+.select-inline:hover {
+  border-color: var(--line-strong);
+  background-color: var(--raised);
+}
+
+.select-inline:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+select.field option,
+.select-inline option {
+  background-color: var(--surface);
+  color: var(--ink);
+  font-weight: 400;
+}
+
+[data-theme="dark"] select.field,
+[data-theme="dark"] .select-inline {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23aca395' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
 }
 
 .field-hint {
