@@ -417,6 +417,16 @@ select.field option,
   font-weight: 400;
 }
 
+/* iOS Safari 会自动放大字号小于 16px 的表单控件，导致搜索后页面停留在放大状态。 */
+@media (max-width: 640px) {
+  input.field,
+  textarea.field,
+  select.field,
+  .select-inline {
+    font-size: 16px;
+  }
+}
+
 [data-theme="dark"] select.field,
 [data-theme="dark"] .select-inline {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23aca395' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");

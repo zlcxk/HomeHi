@@ -38,7 +38,7 @@ function SearchForm({ q, type, autoFocus = false }: { q: string; type: string; a
           defaultValue={q}
           autoFocus={autoFocus}
           placeholder="搜点什么…"
-          className="min-w-0 flex-1 border-0 bg-transparent py-2 text-[14px] outline-none placeholder:text-faint"
+          className="min-w-0 flex-1 border-0 bg-transparent py-2 text-base outline-none placeholder:text-faint sm:text-[14px]"
           aria-label="搜索"
         />
         <button type="submit" className="btn btn-soft btn-sm shrink-0">
@@ -221,7 +221,7 @@ export default async function SearchPage({
     <div>
       <PageHeader title="搜索" eyebrow="Find anything" />
 
-      <SearchForm q={q} type={type} autoFocus />
+      <SearchForm q={q} type={type} />
 
       <p className="mb-6 text-[12px] text-muted">
         「{q}」找到 {total} 条结果

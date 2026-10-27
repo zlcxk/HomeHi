@@ -124,7 +124,7 @@ export function PullToSearch() {
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="搜记录、照片、日程、家人或物品"
                 maxLength={80}
-                className="min-w-0 flex-1 border-0 bg-transparent py-2 text-[14px] outline-none placeholder:text-faint"
+                className="min-w-0 flex-1 border-0 bg-transparent py-2 text-base outline-none placeholder:text-faint sm:text-[14px]"
                 aria-label="搜索关键词"
               />
               <button type="submit" className="btn btn-primary btn-sm px-3" aria-label="开始搜索">
