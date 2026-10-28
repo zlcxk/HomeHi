@@ -28,7 +28,7 @@ export function TripLinkForm({ tripId }: { tripId: string }) {
           id={`trip-link-${tripId}`}
           name="title"
           maxLength={80}
-          placeholder="攻略、票务、预约页"
+          placeholder="攻略、票务、预约小程序"
           className="field"
           aria-label="链接名称"
           required
@@ -36,7 +36,7 @@ export function TripLinkForm({ tripId }: { tripId: string }) {
         <input
           name="url"
           maxLength={500}
-          placeholder="https://"
+          placeholder="粘贴网址或小程序链接"
           className="field"
           aria-label="链接地址"
           required
@@ -44,7 +44,7 @@ export function TripLinkForm({ tripId }: { tripId: string }) {
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">
         <p className="flex items-center gap-1 text-[10.5px] text-faint">
-          <Link2 size={11} /> 只保存 http / https 链接
+          <Link2 size={11} /> 支持网页、微信小程序链接，也可以直接粘贴分享文案
         </p>
         <SubmitButton className="btn btn-primary btn-sm" pendingText="保存中…">
           保存链接

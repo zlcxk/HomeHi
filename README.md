@@ -88,6 +88,8 @@ npm run worker:prod  # 另一个常驻进程，发送邮件提醒
 | `OSS_*` | 可选。`OSS_REGION`、`OSS_BUCKET`、`OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET`、`OSS_ENDPOINT`、`OSS_PREFIX` |
 | `MAX_UPLOAD_MB` | 单个文件上限，默认 100 |
 | `SMTP_*` | 邮件提醒所需的 SMTP 配置；不配置时应用会明确显示「未配置」 |
+| `AMAP_API_KEY` | 可选。高德「Web 服务」Key，用于瞬间/手记/待办/日程/物品/旅行的地点联想；不配置时地点仍可手动填写 |
+| `AMAP_CITY` | 可选。限定地点联想城市，例如 `北京` 或 adcode；留空则全国搜索 |
 | `WORKER_POLL_SECONDS` | worker 轮询间隔，默认 30 秒 |
 | `WORKER_REMINDER_HORIZON_DAYS` | 提醒预生成天数，默认 180 |
 | `FFMPEG_PATH` | 可选。指定 ffmpeg 可执行文件；不填时依次尝试项目内的 `ffmpeg-static` 和系统 `ffmpeg` |

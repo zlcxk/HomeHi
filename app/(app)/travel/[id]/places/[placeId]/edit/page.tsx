@@ -29,6 +29,8 @@ export default async function EditTripPlacePage({
         region: place.region || "",
         address: place.address || "",
         note: place.note || "",
+        latitude: place.latitude,
+        longitude: place.longitude,
       }}
     />
   );

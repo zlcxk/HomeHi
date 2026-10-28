@@ -155,6 +155,8 @@ export const tripSchema = z.object({
   status: z.enum(["PLANNING", "ONGOING", "DONE"]),
   coverMediaId: z.string().optional().default(""),
   visibility: z.enum(["HOUSEHOLD", "PRIVATE"]),
+  /** 新建主题旅行时选用的内置模板，只在创建时预置地点 */
+  templateId: z.string().optional().default(""),
 });
 
 export const tripPlaceSchema = z.object({
@@ -162,6 +164,8 @@ export const tripPlaceSchema = z.object({
   region: z.string().max(80, "城市/地区过长").optional().default(""),
   address: z.string().max(200, "地址过长").optional().default(""),
   note: z.string().max(2000, "备注过长").optional().default(""),
+  latitude: z.string().optional().default(""),
+  longitude: z.string().optional().default(""),
 });
 
 export const tripVisitSchema = z.object({

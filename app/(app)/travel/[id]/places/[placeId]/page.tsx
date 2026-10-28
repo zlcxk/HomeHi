@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   CalendarDays,
   MapPin,
+  Navigation,
   Pencil,
   Plus,
   Trash2,
@@ -12,6 +13,7 @@ import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { tripWhere } from "@/lib/access";
 import { formatDateFull } from "@/lib/dates";
+import { amapMarkerUrl } from "@/lib/travel";
 import { deleteTripPlaceAction, deleteTripVisitAction } from "@/app/actions/travel";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { EmptyState } from "@/components/EmptyState";
@@ -106,6 +108,16 @@ export default async function TripPlacePage({
           </span>
         ) : null}
         {place.address ? <span className="text-faint">{place.address}</span> : null}
+        {place.latitude != null && place.longitude != null ? (
+          <a
+            href={amapMarkerUrl(place.latitude, place.longitude, place.name)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-accent hover:underline"
+          >
+            <Navigation size={11} /> 在地图里看
+          </a>
+        ) : null}
         {visits.length > 0 ? (
           <span className="inline-flex items-center gap-1 text-sage">
             <CalendarDays size={11} /> {visits.length} 次到访

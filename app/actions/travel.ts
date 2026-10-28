@@ -6,7 +6,8 @@ import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/auth";
 import { dateInputToUtc } from "@/lib/dates";
 import { tripWhere } from "@/lib/access";
-import { normalizeExternalUrl } from "@/lib/travel";
+import { normalizeTripLink, parseCoordinates } from "@/lib/travel";
+import { findTravelTemplate } from "@/lib/travel-templates";
 import {
   firstError,
   formArray,
@@ -50,6 +51,7 @@ export async function saveTripAction(
     status: formString(formData, "status") || "PLANNING",
     coverMediaId: formString(formData, "coverMediaId"),
     visibility: formString(formData, "visibility") || "HOUSEHOLD",
+    templateId: formString(formData, "templateId"),
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
   const data = parsed.data;
@@ -92,11 +94,25 @@ export async function saveTripAction(
     if (!existing) return { error: "旅行不存在或没有编辑权限" };
     await prisma.trip.update({ where: { id }, data: payload });
   } else {
+    // 模板只提供初始地点，之后和普通主题旅行完全一样，可以自由增删
+    const template =
+      data.kind === "THEME" && data.templateId ? findTravelTemplate(data.templateId) : undefined;
     const created = await prisma.trip.create({
       data: {
         ...payload,
         householdId: context.household.id,
         createdBy: context.user.id,
+        ...(template
+          ? {
+              places: {
+                create: template.places.map((place, index) => ({
+                  name: place.name,
+                  region: place.region,
+                  sortOrder: index,
+                })),
+              },
+            }
+          : {}),
       },
     });
     tripId = created.id;
@@ -135,15 +151,20 @@ export async function saveTripPlaceAction(
     region: formString(formData, "region"),
     address: formString(formData, "address"),
     note: formString(formData, "note"),
+    latitude: formString(formData, "latitude"),
+    longitude: formString(formData, "longitude"),
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
   const data = parsed.data;
+  const coordinates = parseCoordinates(data.latitude, data.longitude);
 
   const payload = {
     name: data.name,
     region: data.region || null,
     address: data.address || null,
     note: data.note || null,
+    latitude: coordinates?.latitude ?? null,
+    longitude: coordinates?.longitude ?? null,
   };
 
   let placeId = id;
@@ -287,8 +308,8 @@ export async function addTripLinkAction(
   });
   if (!parsed.success) return { error: firstError(parsed.error) };
 
-  const url = normalizeExternalUrl(parsed.data.url);
-  if (!url) return { error: "链接需要是 http 或 https 地址" };
+  const url = normalizeTripLink(parsed.data.url);
+  if (!url) return { error: "没有找到有效链接，请粘贴网址、小程序链接或分享文案" };
 
   const max = await prisma.tripLink.aggregate({
     where: { tripId },

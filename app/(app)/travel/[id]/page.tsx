@@ -21,14 +21,16 @@ import { prisma } from "@/lib/db";
 import { mediaWhere, tripWhere } from "@/lib/access";
 import { formatDateFull, formatDayRange } from "@/lib/dates";
 import {
-  linkHost,
+  linkLabel,
   tripKindLabel,
+  tripLinkKind,
   tripProgress,
   tripRegions,
   tripStatusLabel,
 } from "@/lib/travel";
 import { deleteTripAction, deleteTripLinkAction } from "@/app/actions/travel";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { CopyButton } from "@/components/CopyButton";
 import { TripLinkForm } from "@/components/travel/TripLinkForm";
 
 export default async function TripDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -304,25 +306,37 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
 
         {trip.links.length > 0 ? (
           <div className="card mb-2.5 divide-y divide-line overflow-hidden">
-            {trip.links.map((link) => (
+            {trip.links.map((link) => {
+              const isWeb = tripLinkKind(link.url) === "WEB";
+              return (
               <div key={link.id} className="flex items-center gap-3 px-4 py-3">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-raised text-muted">
                   <Link2 size={14} />
                 </span>
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="min-w-0 flex-1"
-                >
-                  <span className="flex items-center gap-1">
-                    <span className="truncate text-[12.5px] font-medium">{link.title}</span>
-                    <ArrowUpRight size={11} className="shrink-0 text-faint" />
-                  </span>
-                  <span className="mt-0.5 block truncate text-[10.5px] text-faint">
-                    {linkHost(link.url)}
-                  </span>
-                </a>
+                {isWeb ? (
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-w-0 flex-1"
+                  >
+                    <span className="flex items-center gap-1">
+                      <span className="truncate text-[12.5px] font-medium">{link.title}</span>
+                      <ArrowUpRight size={11} className="shrink-0 text-faint" />
+                    </span>
+                    <span className="mt-0.5 block truncate text-[10.5px] text-faint">
+                      {linkLabel(link.url)}
+                    </span>
+                  </a>
+                ) : (
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-[12.5px] font-medium">{link.title}</span>
+                    <span className="mt-0.5 block truncate text-[10.5px] text-faint">
+                      {linkLabel(link.url)}
+                    </span>
+                  </div>
+                )}
+                {isWeb ? null : <CopyButton value={link.url} />}
                 <form action={deleteTripLinkAction}>
                   <input type="hidden" name="tripId" value={trip.id} />
                   <input type="hidden" name="id" value={link.id} />
@@ -335,7 +349,8 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
                   </ConfirmButton>
                 </form>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : null}
 

@@ -51,11 +51,29 @@ export function tripRegions(places: { region: string | null; visits: { id: strin
   return [...seen];
 }
 
-/** 只接受 http/https，避免把 javascript: 之类的地址写进数据库。 */
-export function normalizeExternalUrl(value: string): string | null {
+/** 这些协议会在浏览器里执行代码或跳出应用，不保存。 */
+const BLOCKED_LINK_PROTOCOLS = new Set(["javascript:", "data:", "vbscript:", "file:", "blob:"]);
+
+/**
+ * 旅行链接可以是网页、微信小程序分享链接，或其他 App 的深链接。
+ * 小程序的分享文案形如「博物馆预约 #小程序://博物馆预约/abc123」，所以先从整段文案里取出链接。
+ * 网页链接会补全并规范化；深链接（如 weixin://）原样保存，页面上只提供复制。
+ */
+export function normalizeTripLink(value: string): string | null {
   const raw = value.trim();
   if (!raw) return null;
-  const candidate = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw) ? raw : `https://${raw}`;
+
+  const miniprogram = raw.match(/#小程序:\/\/\S+/);
+  if (miniprogram) return miniprogram[0];
+
+  const scheme = raw.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
+  if (scheme) {
+    const protocol = `${scheme[1].toLowerCase()}:`;
+    if (BLOCKED_LINK_PROTOCOLS.has(protocol)) return null;
+    if (protocol !== "http:" && protocol !== "https:") return raw;
+  }
+
+  const candidate = scheme ? raw : `https://${raw}`;
   try {
     const url = new URL(candidate);
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
@@ -66,10 +84,52 @@ export function normalizeExternalUrl(value: string): string | null {
   }
 }
 
+export type TripLinkKind = "WEB" | "MINIPROGRAM" | "APP";
+
+/** 网页可以安全地新窗口打开；小程序和 App 深链接只能复制后在对应 App 里打开。 */
+export function tripLinkKind(url: string): TripLinkKind {
+  if (url.includes("小程序://")) return "MINIPROGRAM";
+  if (/^https?:/i.test(url)) return "WEB";
+  return "APP";
+}
+
 export function linkHost(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {
     return url;
   }
+}
+
+/** 链接下方的说明文字：网页显示域名，小程序和深链接显示来源。 */
+export function linkLabel(url: string): string {
+  const kind = tripLinkKind(url);
+  if (kind === "MINIPROGRAM") return "微信小程序 · 复制后在微信中打开";
+  if (kind === "WEB") return linkHost(url);
+  const scheme = url.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
+  return scheme ? `${scheme[1].toLowerCase()} 链接` : url;
+}
+
+/** 高德选点带回的坐标，缺一个或超出范围就当作没有。 */
+export function parseCoordinates(
+  latitude: string,
+  longitude: string,
+): { latitude: number; longitude: number } | null {
+  if (!latitude.trim() || !longitude.trim()) return null;
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { latitude: lat, longitude: lng };
+}
+
+/** 在高德地图里查看这个点（手机上会唤起高德 App）。 */
+export function amapMarkerUrl(latitude: number, longitude: number, name: string): string {
+  const params = new URLSearchParams({
+    position: `${longitude},${latitude}`,
+    name,
+    coordinate: "gaode",
+    callnative: "1",
+  });
+  return `https://uri.amap.com/marker?${params.toString()}`;
 }

@@ -10,12 +10,18 @@ export function LocationField({
   label = "地点",
   placeholder = "搜索地点，或直接输入",
   name = "location",
+  onPick,
+  onInput,
 }: {
   defaultValue?: string;
   suggestions?: string[];
   label?: string;
   placeholder?: string;
   name?: string;
+  /** 选中高德候选地点时回调，用来回填城市、地址等信息 */
+  onPick?: (suggestion: LocationSuggestion) => void;
+  /** 手动修改输入时回调，用来清除不再匹配的坐标 */
+  onInput?: (value: string) => void;
 }) {
   const id = useId();
   const listId = `${id}-results`;
@@ -87,6 +93,7 @@ export function LocationField({
     setResults([]);
     setOpen(false);
     setActive(-1);
+    onPick?.(suggestion);
   }
 
   return (
@@ -106,6 +113,7 @@ export function LocationField({
           onChange={(event) => {
             setValue(event.target.value);
             setQuery(event.target.value);
+            onInput?.(event.target.value);
           }}
           onFocus={() => {
             if (results.length > 0) setOpen(true);
@@ -176,6 +184,12 @@ export function LocationField({
             </button>
           ))}
         </div>
+      ) : null}
+
+      {!configured && query.trim().length >= 2 ? (
+        <p className="mt-1.5 text-[10.5px] text-faint">
+          没有配置高德 Key，直接手动填写即可。
+        </p>
       ) : null}
 
       {!open && hints.length > 0 ? (

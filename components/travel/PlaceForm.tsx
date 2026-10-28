@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { saveTripPlaceAction } from "@/app/actions/travel";
+import { LocationField } from "@/components/pickers/LocationField";
 import { SaveBar } from "@/components/compose/SaveBar";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -17,6 +18,8 @@ export type PlaceInitial = {
   region: string;
   address: string;
   note: string;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export function PlaceForm({
@@ -30,6 +33,13 @@ export function PlaceForm({
 }) {
   const router = useRouter();
   const [state, action] = useActionState(saveTripPlaceAction, initialState);
+  const [region, setRegion] = useState(initial?.region || "");
+  const [address, setAddress] = useState(initial?.address || "");
+  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(
+    initial?.latitude != null && initial?.longitude != null
+      ? { latitude: initial.latitude, longitude: initial.longitude }
+      : null,
+  );
   const editing = Boolean(initial);
 
   return (
@@ -52,21 +62,36 @@ export function PlaceForm({
       <form action={action}>
         <input type="hidden" name="tripId" value={tripId} />
         {initial ? <input type="hidden" name="id" value={initial.id} /> : null}
+        <input type="hidden" name="latitude" value={coordinates?.latitude ?? ""} />
+        <input type="hidden" name="longitude" value={coordinates?.longitude ?? ""} />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <label className="label" htmlFor="place-name">
-              地点名称
-            </label>
-            <input
-              id="place-name"
+            <LocationField
               name="name"
+              label="地点名称"
               defaultValue={initial?.name || ""}
-              placeholder="例如：上海博物馆"
-              maxLength={80}
-              required
-              className="field"
+              placeholder="搜索高德地点，或直接输入名称"
+              onPick={(suggestion) => {
+                // 城市/地区只留到市一级，和模板里的地区写法保持一致
+                const city = (suggestion.city || suggestion.province).replace(
+                  /(市|省|特别行政区)$/,
+                  "",
+                );
+                setRegion(city || suggestion.district);
+                setAddress(suggestion.fullAddress);
+                setCoordinates(
+                  suggestion.latitude != null && suggestion.longitude != null
+                    ? { latitude: suggestion.latitude, longitude: suggestion.longitude }
+                    : null,
+                );
+              }}
+              onInput={() => setCoordinates(null)}
             />
+            <p className="mt-1.5 flex items-center gap-1 text-[10.5px] text-faint">
+              <MapPin size={11} />
+              输入两个字以上会搜索高德地点，选中后自动填好城市和地址；搜不到也可以直接手填。
+            </p>
           </div>
 
           <div>
@@ -76,7 +101,8 @@ export function PlaceForm({
             <input
               id="place-region"
               name="region"
-              defaultValue={initial?.region || ""}
+              value={region}
+              onChange={(event) => setRegion(event.target.value)}
               placeholder="上海"
               maxLength={80}
               className="field"
@@ -90,7 +116,8 @@ export function PlaceForm({
             <input
               id="place-address"
               name="address"
-              defaultValue={initial?.address || ""}
+              value={address}
+              onChange={(event) => setAddress(event.target.value)}
               placeholder="可选"
               maxLength={200}
               className="field"

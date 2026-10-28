@@ -605,6 +605,9 @@ model TripPlace {
   region    String?
   address   String?
   note      String?
+  /// 高德 POI 坐标（GCJ-02），从高德选点时写入
+  latitude  Float?
+  longitude Float?
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

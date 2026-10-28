@@ -9,6 +9,11 @@ export type LocationSuggestion = {
   district: string;
   /** 带省市的完整地址，用于辅助判断重名地点 */
   fullAddress: string;
+  province: string;
+  city: string;
+  /** 高德返回的经纬度（GCJ-02），部分 POI 可能没有 */
+  latitude: number | null;
+  longitude: number | null;
 };
 
 type CacheEntry = { expiresAt: number; results: LocationSuggestion[] };
@@ -19,7 +24,19 @@ export function amapConfigured(): boolean {
 }
 
 function clean(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+  const text = typeof value === "string" ? value.trim() : "";
+  // 高德在没有值的字段上会返回字符串 "[]"
+  return text === "[]" ? "" : text;
+}
+
+/** 高德的 location 是 "lng,lat" 字符串。 */
+function parseLocation(value: unknown): { latitude: number; longitude: number } | null {
+  const [lng, lat] = clean(value).split(",");
+  const longitude = Number(lng);
+  const latitude = Number(lat);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+  return { latitude, longitude };
 }
 
 function uniqueRegion(parts: string[]): string[] {
@@ -38,17 +55,20 @@ type AmapPoi = {
   pname?: unknown;
   cityname?: unknown;
   adname?: unknown;
+  location?: unknown;
 };
 
 function toSuggestion(poi: AmapPoi): LocationSuggestion | null {
   const name = clean(poi.name);
   if (!name) return null;
 
-  const region = uniqueRegion([clean(poi.pname), clean(poi.cityname), clean(poi.adname)]).join("");
-  const rawAddress = clean(poi.address);
-  const detail = rawAddress && rawAddress !== "[]" ? rawAddress : "";
+  const province = clean(poi.pname);
+  const city = clean(poi.cityname);
+  const region = uniqueRegion([province, city, clean(poi.adname)]).join("");
+  const detail = clean(poi.address);
   const fullAddress =
     region && detail && !detail.startsWith(region) ? `${region}${detail}` : detail || region;
+  const coordinates = parseLocation(poi.location);
 
   return {
     id: clean(poi.id) || `${name}-${fullAddress}`,
@@ -56,6 +76,10 @@ function toSuggestion(poi: AmapPoi): LocationSuggestion | null {
     address: detail,
     district: region,
     fullAddress: fullAddress || name,
+    province,
+    city,
+    latitude: coordinates?.latitude ?? null,
+    longitude: coordinates?.longitude ?? null,
   };
 }
 

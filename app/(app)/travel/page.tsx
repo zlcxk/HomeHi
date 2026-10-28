@@ -43,7 +43,7 @@ export default async function TravelPage() {
         <EmptyState
           icon={<Compass strokeWidth={1.7} />}
           title="还没有旅行"
-          description="新建一次单次旅行，或者立一个主题，比如「全国博物馆打卡」，路过时打个卡就好。"
+          description="新建一次单次旅行，或者挑一个主题——博物馆、古建、石窟、名山、湖泊、地标都有现成模板，路过时打个卡就好。"
           action={
             <Link href="/travel/new" className="btn btn-primary btn-sm">
               开始第一段旅行
