@@ -1,12 +1,44 @@
 import { DateTime } from "luxon";
+import { lunarOccurrenceInYear, solarToLunar } from "@/lib/lunar";
 
 export type RecurrenceKind = "NONE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+
+export type LunarRecurrence = {
+  month: number;
+  day: number;
+  leap?: boolean;
+};
 
 export type RecurrenceRule = {
   type: string;
   interval: number;
   until?: Date | string | null;
+  /** 仅 YEARLY 生效：按农历月日重复，而不是公历同月同日。 */
+  lunar?: LunarRecurrence | null;
 };
+
+export type EventRecurrenceSource = {
+  recurrenceType: string;
+  recurrenceInterval: number;
+  recurrenceUntil?: Date | string | null;
+  isLunar?: boolean | null;
+  lunarMonth?: number | null;
+  lunarDay?: number | null;
+  lunarLeap?: boolean | null;
+};
+
+/** 把一条日程记录转换成重复规则。 */
+export function eventRule(event: EventRecurrenceSource): RecurrenceRule {
+  return {
+    type: event.recurrenceType,
+    interval: event.recurrenceInterval,
+    until: event.recurrenceUntil ?? null,
+    lunar:
+      event.isLunar && event.lunarMonth && event.lunarDay
+        ? { month: event.lunarMonth, day: event.lunarDay, leap: Boolean(event.lunarLeap) }
+        : null,
+  };
+}
 
 const MAX_INDEX = 20_000;
 
@@ -37,7 +69,36 @@ export function occurrenceAt(
   if (rule.type === "DAILY") dt = base.plus({ days: index * interval });
   if (rule.type === "WEEKLY") dt = base.plus({ days: index * interval * 7 });
   if (rule.type === "MONTHLY") dt = base.plus({ months: index * interval });
-  if (rule.type === "YEARLY") dt = base.plus({ years: index * interval });
+  if (rule.type === "YEARLY") {
+    if (rule.lunar) {
+      if (index > 0) {
+        // 农历日期对应的公历日期每年都不同，先换算再加回原来的时刻。
+        const baseLunar = solarToLunar(base.year, base.month, base.day);
+        const ymd = lunarOccurrenceInYear(
+          baseLunar.year + index * interval,
+          rule.lunar.month,
+          rule.lunar.day,
+          Boolean(rule.lunar.leap),
+        );
+        if (!ymd) return null;
+        dt = DateTime.fromObject(
+          {
+            year: ymd.year,
+            month: ymd.month,
+            day: ymd.day,
+            hour: base.hour,
+            minute: base.minute,
+            second: base.second,
+            millisecond: base.millisecond,
+          },
+          { zone: timezone },
+        );
+        if (!dt.isValid) return null;
+      }
+    } else {
+      dt = base.plus({ years: index * interval });
+    }
+  }
 
   if (rule.until) {
     const until = anchorDateTime(rule.until, timezone).endOf("day");

@@ -12,7 +12,7 @@ const instrument = localFont({
   display: "swap",
 });
 
-const themeScript = `(function(){try{var d=document.documentElement;var t=localStorage.getItem("homehi-theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}d.dataset.theme=t;var p=localStorage.getItem("homehi-palette");d.dataset.palette=p==="celadon"||p==="ink"?p:"warm";}catch(e){}})();`;
+const themeScript = `(function(){try{var d=document.documentElement;var t=localStorage.getItem("homehi-theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}d.dataset.theme=t;var p=localStorage.getItem("homehi-palette");d.dataset.palette=["celadon","ink","peach","soda","night","lime"].indexOf(p)>-1?p:"warm";}catch(e){}})();`;
 
 export const metadata: Metadata = {
   title: {

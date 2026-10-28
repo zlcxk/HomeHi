@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/auth";
 import { dateInputToUtc } from "@/lib/dates";
+import { lunarToSolar } from "@/lib/lunar";
 import {
   firstError,
   formString,
@@ -33,6 +34,11 @@ export async function saveProfileAction(
     profileType: formString(formData, "profileType") || "PERSON",
     name: formString(formData, "name"),
     birthday: formString(formData, "birthday"),
+    birthdayMode: formString(formData, "birthdayMode") === "LUNAR" ? "LUNAR" : "SOLAR",
+    birthdayLunarYear: formString(formData, "birthdayLunarYear"),
+    birthdayLunarMonth: formString(formData, "birthdayLunarMonth"),
+    birthdayLunarDay: formString(formData, "birthdayLunarDay"),
+    birthdayLunarLeap: formString(formData, "birthdayLunarLeap") === "true",
     joinedDate: formString(formData, "joinedDate"),
     species: formString(formData, "species"),
     breed: formString(formData, "breed"),
@@ -44,9 +50,44 @@ export async function saveProfileAction(
   if (!parsed.success) return { error: firstError(parsed.error) };
   const data = parsed.data;
 
-  const birthday = data.birthday ? dateInputToUtc(data.birthday, timezone) : null;
+  let birthday: Date | null = null;
+  let birthdayCalendar = "SOLAR";
+  let lunarMonth: number | null = null;
+  let lunarDay: number | null = null;
+  let lunarLeap = false;
+
+  if (data.birthdayMode === "LUNAR") {
+    const lunarYear = Number(data.birthdayLunarYear);
+    const month = Number(data.birthdayLunarMonth);
+    const day = Number(data.birthdayLunarDay);
+    if (
+      !Number.isInteger(lunarYear) ||
+      !Number.isInteger(month) ||
+      !Number.isInteger(day) ||
+      month < 1 ||
+      month > 12 ||
+      day < 1 ||
+      day > 30
+    ) {
+      return { error: "请选择农历生日" };
+    }
+    const solarDate = lunarToSolar(lunarYear, month, day, data.birthdayLunarLeap);
+    if (!solarDate) return { error: "这个农历日期不存在，请重新选择" };
+    birthday = dateInputToUtc(
+      `${solarDate.year}-${String(solarDate.month).padStart(2, "0")}-${String(solarDate.day).padStart(2, "0")}`,
+      timezone,
+    );
+    if (!birthday) return { error: "生日格式不正确" };
+    birthdayCalendar = "LUNAR";
+    lunarMonth = month;
+    lunarDay = day;
+    lunarLeap = data.birthdayLunarLeap;
+  } else if (data.birthday) {
+    birthday = dateInputToUtc(data.birthday, timezone);
+    if (!birthday) return { error: "生日格式不正确" };
+  }
+
   const joinedDate = data.joinedDate ? dateInputToUtc(data.joinedDate, timezone) : null;
-  if (data.birthday && !birthday) return { error: "生日格式不正确" };
   if (data.joinedDate && !joinedDate) return { error: "日期格式不正确" };
 
   let avatarMediaId: string | null = null;
@@ -68,6 +109,10 @@ export async function saveProfileAction(
     name: data.name,
     avatarMediaId,
     birthday,
+    birthdayCalendar,
+    lunarMonth,
+    lunarDay,
+    lunarLeap,
     joinedDate,
     species: data.profileType === "PET" ? data.species || null : null,
     breed: data.profileType === "PET" ? data.breed || null : null,

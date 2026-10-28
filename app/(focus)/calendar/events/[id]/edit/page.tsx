@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
+import { DateTime } from "luxon";
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { toDateInput, toLocalInput } from "@/lib/dates";
+import { solarToLunar } from "@/lib/lunar";
 import { parseStringArray } from "@/lib/json";
 import { parseOffsets } from "@/lib/reminders";
 import { assetOptions, profileOptions, recentLocations } from "@/lib/view";
@@ -31,12 +33,27 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
     }),
   ]);
 
+  const startLocal = DateTime.fromJSDate(event.startsAt, { zone: timezone });
+  const startLunar = event.isLunar
+    ? solarToLunar(startLocal.year, startLocal.month, startLocal.day)
+    : null;
+
   const initial: EventInitial = {
     id: event.id,
     title: event.title,
     description: event.description || "",
     location: event.location || "",
     isAllDay: event.isAllDay,
+    isLunar: event.isLunar,
+    lunarDate:
+      event.isLunar && event.lunarMonth && event.lunarDay && startLunar
+        ? {
+            year: startLunar.year,
+            month: event.lunarMonth,
+            day: event.lunarDay,
+            leap: event.lunarLeap,
+          }
+        : null,
     start: event.isAllDay
       ? toDateInput(event.startsAt, timezone)
       : toLocalInput(event.startsAt, timezone),

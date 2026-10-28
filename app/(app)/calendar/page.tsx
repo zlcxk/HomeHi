@@ -9,6 +9,7 @@ import {
   CalendarDays,
   CheckCircle2,
   MapPin,
+  MoonStar,
   Pencil,
   Plus,
   Repeat,
@@ -18,9 +19,10 @@ import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { eventWhere } from "@/lib/access";
 import { formatTime, monthGrid, dayKey } from "@/lib/dates";
-import { occurrencesBetween, recurrenceSummary } from "@/lib/recurrence";
+import { eventRule, occurrencesBetween, recurrenceSummary } from "@/lib/recurrence";
 import { holidayMap } from "@/lib/holidays";
-import { lunarDayInfo, type LunarDayInfo } from "@/lib/lunar";
+import { lunarDateLabel, lunarDayInfo, type LunarDayInfo } from "@/lib/lunar";
+import { birthdayOccursOn } from "@/lib/birthdays";
 import { parseStringArray } from "@/lib/json";
 import { CalendarSwipe } from "@/components/calendar/CalendarSwipe";
 import { cancelEventAction, deleteEventAction } from "@/app/actions/events";
@@ -71,7 +73,16 @@ export default async function CalendarPage({
         birthday: { not: null },
         OR: [{ visibility: "HOUSEHOLD" }, { linkedUserId: context.user.id }],
       },
-      select: { id: true, name: true, birthday: true, profileType: true },
+      select: {
+        id: true,
+        name: true,
+        birthday: true,
+        birthdayCalendar: true,
+        lunarMonth: true,
+        lunarDay: true,
+        lunarLeap: true,
+        profileType: true,
+      },
     }),
     prisma.asset.findMany({
       where: {
@@ -94,11 +105,7 @@ export default async function CalendarPage({
   for (const event of events) {
     const occurrences = occurrencesBetween(
       event.startsAt,
-      {
-        type: event.recurrenceType,
-        interval: event.recurrenceInterval,
-        until: event.recurrenceUntil,
-      },
+      eventRule(event),
       gridStart.toJSDate(),
       gridEnd.toJSDate(),
       timezone,
@@ -118,11 +125,9 @@ export default async function CalendarPage({
   const dayItems = (byDay.get(selectedKey) || []).sort(
     (a, b) => a.occurrence.getTime() - b.occurrence.getTime(),
   );
-  const dayBirthdays = profiles.filter((profile) => {
-    if (!profile.birthday) return false;
-    const birth = DateTime.fromJSDate(profile.birthday, { zone: timezone });
-    return birth.month === selectedDay.month && birth.day === selectedDay.day;
-  });
+  const dayBirthdays = profiles.filter((profile) =>
+    birthdayOccursOn(profile, selectedDay, timezone),
+  );
 
   const prevMonth = monthBase.minus({ months: 1 });
   const nextMonth = monthBase.plus({ months: 1 });
@@ -323,7 +328,11 @@ export default async function CalendarPage({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13.5px] font-medium">{profile.name} 的生日</p>
                 <p className="text-[10.5px] text-faint">
-                  {profile.profileType === "PET" ? "宠物生日" : "记得说生日快乐"}
+                  {profile.birthdayCalendar === "LUNAR" && profile.lunarMonth && profile.lunarDay
+                    ? `${lunarDateLabel(profile.lunarMonth, profile.lunarDay, profile.lunarLeap)} · 记得说生日快乐`
+                    : profile.profileType === "PET"
+                      ? "宠物生日"
+                      : "记得说生日快乐"}
                 </p>
               </div>
               <Link href={`/profiles/${profile.id}`} className="text-[11.5px] text-accent">
@@ -354,6 +363,11 @@ export default async function CalendarPage({
                     {event.recurrenceType !== "NONE" ? (
                       <span className="inline-flex items-center gap-0.5">
                         <Repeat size={10} /> {recurrenceSummary(event.recurrenceType, event.recurrenceInterval)}
+                      </span>
+                    ) : null}
+                    {event.isLunar && event.lunarMonth && event.lunarDay ? (
+                      <span className="inline-flex items-center gap-0.5">
+                        <MoonStar size={10} /> {lunarDateLabel(event.lunarMonth, event.lunarDay, event.lunarLeap)}
                       </span>
                     ) : null}
                     {parseStringArray(event.relatedProfileIds).length > 0 ? (

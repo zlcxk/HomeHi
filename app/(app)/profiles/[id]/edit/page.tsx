@@ -3,6 +3,7 @@ import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { profileWhere } from "@/lib/access";
 import { toDateInput } from "@/lib/dates";
+import { birthdayLunarInitial } from "@/lib/birthdays";
 import { ProfileForm, type ProfileInitial } from "@/components/profiles/ProfileForm";
 
 export default async function EditProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -33,6 +34,8 @@ export default async function EditProfilePage({ params }: { params: Promise<{ id
     profileType: profile.profileType,
     name: profile.name,
     birthday: toDateInput(profile.birthday, timezone),
+    birthdayMode: profile.birthdayCalendar === "LUNAR" ? "LUNAR" : "SOLAR",
+    lunarBirthday: birthdayLunarInitial(profile, timezone),
     joinedDate: toDateInput(profile.joinedDate, timezone),
     species: profile.species || "",
     breed: profile.breed || "",

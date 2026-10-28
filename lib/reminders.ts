@@ -73,6 +73,10 @@ type LoadedTarget = {
   startsAt: Date | null;
   dueAt: Date | null;
   isAllDay: boolean;
+  isLunar: boolean;
+  lunarMonth: number | null;
+  lunarDay: number | null;
+  lunarLeap: boolean;
 };
 
 async function loadTarget(targetType: TargetType, targetId: string): Promise<LoadedTarget | null> {
@@ -96,6 +100,10 @@ async function loadTarget(targetType: TargetType, targetId: string): Promise<Loa
       startsAt: event.startsAt,
       dueAt: null,
       isAllDay: event.isAllDay,
+      isLunar: event.isLunar,
+      lunarMonth: event.lunarMonth,
+      lunarDay: event.lunarDay,
+      lunarLeap: event.lunarLeap,
     };
   }
 
@@ -118,6 +126,10 @@ async function loadTarget(targetType: TargetType, targetId: string): Promise<Loa
     startsAt: null,
     dueAt: task.dueAt,
     isAllDay: false,
+    isLunar: false,
+    lunarMonth: null,
+    lunarDay: null,
+    lunarLeap: false,
   };
 }
 
@@ -207,6 +219,10 @@ export async function syncReminderNotifications(
       type: target.recurrenceType,
       interval: target.recurrenceInterval,
       until: target.recurrenceUntil,
+      lunar:
+        target.isLunar && target.lunarMonth && target.lunarDay
+          ? { month: target.lunarMonth, day: target.lunarDay, leap: target.lunarLeap }
+          : null,
     },
     now,
     horizonEnd,

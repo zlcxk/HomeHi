@@ -4,13 +4,29 @@ import { useEffect, useState } from "react";
 import { Check, Contrast, Moon, Sun } from "lucide-react";
 
 type Theme = "light" | "dark" | "system";
-type Palette = "warm" | "celadon" | "ink";
 
-const PALETTES: { value: Palette; label: string; colors: [string, string, string] }[] = [
-  { value: "warm", label: "暖纸", colors: ["#f7f1e7", "#e75d31", "#211d17"] },
-  { value: "celadon", label: "青瓷", colors: ["#eff4f1", "#2f7d63", "#18211c"] },
-  { value: "ink", label: "墨白", colors: ["#f2f2ef", "#2a2b30", "#17181a"] },
+type Palette = "warm" | "celadon" | "ink" | "peach" | "soda" | "night" | "lime";
+
+type PaletteOption = {
+  value: Palette;
+  label: string;
+  paper: string;
+  accent: string;
+  ink: string;
+  tint: string;
+};
+
+const PALETTES: PaletteOption[] = [
+  { value: "warm", label: "暖纸", paper: "#f7f1e7", accent: "#e75d31", ink: "#211d17", tint: "#a9c25e" },
+  { value: "celadon", label: "青瓷", paper: "#eff4f1", accent: "#2f7d63", ink: "#18211c", tint: "#45a184" },
+  { value: "ink", label: "墨白", paper: "#f2f2ef", accent: "#2a2b30", ink: "#17181a", tint: "#4a4b52" },
+  { value: "peach", label: "蜜桃", paper: "#fdf3f4", accent: "#7059d6", ink: "#2b2028", tint: "#64b394" },
+  { value: "soda", label: "汽水", paper: "#fdf7df", accent: "#6a4bf2", ink: "#22201a", tint: "#a9c81f" },
+  { value: "night", label: "夜色", paper: "#f0f3f8", accent: "#2f6bff", ink: "#131820", tint: "#b7d92b" },
+  { value: "lime", label: "青柠", paper: "#f3f4f1", accent: "#b9e334", ink: "#111310", tint: "#b9e334" },
 ];
+
+const PALETTE_VALUES = new Set<string>(PALETTES.map((option) => option.value));
 
 function applyTheme(theme: Theme) {
   const resolved =
@@ -38,8 +54,8 @@ export function ThemeToggle() {
     const stored = localStorage.getItem("homehi-theme");
     if (stored === "light" || stored === "dark") setTheme(stored);
     const storedPalette = localStorage.getItem("homehi-palette");
-    if (storedPalette === "celadon" || storedPalette === "ink") {
-      setPalette(storedPalette);
+    if (storedPalette && PALETTE_VALUES.has(storedPalette)) {
+      setPalette(storedPalette as Palette);
       document.documentElement.dataset.palette = storedPalette;
     }
   }, []);
@@ -61,10 +77,10 @@ export function ThemeToggle() {
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <section>
         <h3 className="mb-2.5 text-[12.5px] font-semibold text-muted">配色</h3>
-        <div className="grid grid-cols-3 gap-2" role="group" aria-label="配色主题">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label="配色主题">
           {PALETTES.map((option) => {
             const active = palette === option.value;
             return (
@@ -73,24 +89,51 @@ export function ThemeToggle() {
                 type="button"
                 onClick={() => choosePalette(option.value)}
                 aria-pressed={active}
-                className={`rounded-2xl border p-2.5 text-left transition ${
+                className={`rounded-2xl border p-2 text-left transition active:scale-[0.985] ${
                   active
                     ? "border-ink bg-surface shadow-[0_12px_26px_-20px_rgba(20,18,16,0.55)]"
                     : "border-line bg-surface hover:border-line-strong"
                 }`}
               >
                 <span
-                  className="flex h-11 w-full items-center gap-1.5 rounded-xl border px-2"
-                  style={{ backgroundColor: option.colors[0], borderColor: `${option.colors[2]}1a` }}
+                  className="relative flex h-[54px] w-full overflow-hidden rounded-xl border"
+                  style={{
+                    backgroundColor: option.paper,
+                    borderColor: `${option.ink}16`,
+                  }}
                 >
                   <span
-                    className="h-5 w-5 rounded-full"
-                    style={{ backgroundColor: option.colors[1] }}
+                    className="absolute -left-4 -top-5 h-12 w-12 rounded-full"
+                    style={{ backgroundColor: option.accent, opacity: 0.16 }}
                   />
                   <span
-                    className="h-2 flex-1 rounded-full"
-                    style={{ backgroundColor: option.colors[2], opacity: 0.14 }}
+                    className="absolute -bottom-5 -right-3 h-14 w-14 rounded-full"
+                    style={{ backgroundColor: option.tint, opacity: 0.26 }}
                   />
+                  <span
+                    className="absolute right-1.5 top-1.5 h-2.5 w-6 rounded-full"
+                    style={{ backgroundColor: option.accent }}
+                  />
+                  <span className="relative mt-auto flex w-full items-end gap-1 p-1.5">
+                    <span
+                      className="h-5 w-5 rounded-full"
+                      style={{ backgroundColor: option.accent }}
+                    />
+                    <span className="flex flex-col gap-1">
+                      <span
+                        className="h-1 w-8 rounded-full"
+                        style={{ backgroundColor: option.ink, opacity: 0.72 }}
+                      />
+                      <span
+                        className="h-1 w-5 rounded-full"
+                        style={{ backgroundColor: option.ink, opacity: 0.24 }}
+                      />
+                    </span>
+                    <span
+                      className="ml-auto h-4 w-4 rounded-md"
+                      style={{ backgroundColor: option.ink, opacity: 0.86 }}
+                    />
+                  </span>
                 </span>
                 <span className="mt-2 flex items-center justify-between px-0.5 text-[12px] font-medium">
                   <span className="flex items-center gap-1">

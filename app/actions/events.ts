@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/auth";
 import { dateInputToUtc, dayKey, localInputToUtc } from "@/lib/dates";
+import { lunarToSolar } from "@/lib/lunar";
 import { cancelPendingNotifications, clearReminderRule, syncReminderNotifications } from "@/lib/reminders";
 import { validAssetIds } from "@/lib/asset-links";
 import {
@@ -16,6 +17,10 @@ import {
   formString,
   type ActionState,
 } from "@/lib/validation";
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
 
 function revalidateEventSurfaces() {
   revalidatePath("/calendar");
@@ -49,8 +54,14 @@ export async function saveEventAction(
     description: formString(formData, "description"),
     location: formString(formData, "location"),
     isAllDay: formBoolean(formData, "isAllDay"),
+    isLunar: formBoolean(formData, "isLunar"),
     start: formString(formData, "start"),
     end: formString(formData, "end"),
+    lunarYear: formString(formData, "lunarYear"),
+    lunarMonth: formString(formData, "lunarMonth"),
+    lunarDay: formString(formData, "lunarDay"),
+    lunarLeap: formBoolean(formData, "lunarLeap"),
+    lunarTime: formString(formData, "lunarTime"),
     recurrenceType: formString(formData, "recurrenceType") || "NONE",
     recurrenceInterval: Number(formString(formData, "recurrenceInterval") || 1),
     recurrenceUntil: formString(formData, "recurrenceUntil"),
@@ -60,14 +71,50 @@ export async function saveEventAction(
   if (!parsed.success) return { error: firstError(parsed.error) };
   const data = parsed.data;
 
-  const startsAt = data.isAllDay
-    ? dateInputToUtc(data.start, timezone)
-    : localInputToUtc(data.start, timezone);
-  const endsAt = data.end
-    ? data.isAllDay
-      ? dateInputToUtc(data.end, timezone)
-      : localInputToUtc(data.end, timezone)
-    : null;
+  let startsAt: Date | null = null;
+  let endsAt: Date | null = null;
+  let lunarMonth: number | null = null;
+  let lunarDay: number | null = null;
+  const lunarLeap = data.isLunar ? data.lunarLeap : false;
+
+  if (data.isLunar) {
+    const lunarYear = Number(data.lunarYear);
+    const month = Number(data.lunarMonth);
+    const day = Number(data.lunarDay);
+    if (
+      !Number.isInteger(lunarYear) ||
+      !Number.isInteger(month) ||
+      !Number.isInteger(day) ||
+      month < 1 ||
+      month > 12 ||
+      day < 1 ||
+      day > 30
+    ) {
+      return { error: "请选择农历日期" };
+    }
+    const solarDate = lunarToSolar(lunarYear, month, day, lunarLeap);
+    if (!solarDate) return { error: "这个农历日期不存在，请重新选择" };
+    const time = data.isAllDay
+      ? "00:00"
+      : /^\d{2}:\d{2}$/.test(data.lunarTime)
+        ? data.lunarTime
+        : "09:00";
+    startsAt = localInputToUtc(
+      `${solarDate.year}-${pad2(solarDate.month)}-${pad2(solarDate.day)}T${time}`,
+      timezone,
+    );
+    lunarMonth = month;
+    lunarDay = day;
+  } else {
+    startsAt = data.isAllDay
+      ? dateInputToUtc(data.start, timezone)
+      : localInputToUtc(data.start, timezone);
+    endsAt = data.end
+      ? data.isAllDay
+        ? dateInputToUtc(data.end, timezone)
+        : localInputToUtc(data.end, timezone)
+      : null;
+  }
 
   if (!startsAt) return { error: "开始时间格式不正确" };
   if (endsAt && data.end && endsAt.getTime() < startsAt.getTime()) {
@@ -111,6 +158,10 @@ export async function saveEventAction(
         startsAt,
         endsAt,
         isAllDay: data.isAllDay,
+        isLunar: data.isLunar,
+        lunarMonth,
+        lunarDay,
+        lunarLeap,
         timezone,
         recurrenceType: data.recurrenceType,
         recurrenceInterval: data.recurrenceInterval,
@@ -132,6 +183,10 @@ export async function saveEventAction(
         startsAt,
         endsAt,
         isAllDay: data.isAllDay,
+        isLunar: data.isLunar,
+        lunarMonth,
+        lunarDay,
+        lunarLeap,
         timezone,
         recurrenceType: data.recurrenceType,
         recurrenceInterval: data.recurrenceInterval,

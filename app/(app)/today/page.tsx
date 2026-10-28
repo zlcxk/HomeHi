@@ -18,7 +18,8 @@ import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { publishedEntryWhere } from "@/lib/access";
 import { formatDayLabel, formatTime, greeting, localHourNow } from "@/lib/dates";
-import { occurrencesBetween } from "@/lib/recurrence";
+import { eventRule, occurrencesBetween } from "@/lib/recurrence";
+import { birthdayLunarLabel, birthdayOccursOn } from "@/lib/birthdays";
 import { entryCardInclude, toEntryCard } from "@/lib/entries-view";
 import { DEMO_SETTING_KEY } from "@/lib/constants";
 import { EntryCard } from "@/components/entries/EntryCard";
@@ -61,6 +62,10 @@ export default async function TodayPage() {
         recurrenceType: true,
         recurrenceInterval: true,
         recurrenceUntil: true,
+        isLunar: true,
+        lunarMonth: true,
+        lunarDay: true,
+        lunarLeap: true,
       },
     }),
     prisma.task.findMany({
@@ -80,7 +85,16 @@ export default async function TodayPage() {
         birthday: { not: null },
         OR: [{ visibility: "HOUSEHOLD" }, { linkedUserId: context.user.id }],
       },
-      select: { id: true, name: true, birthday: true, profileType: true },
+      select: {
+        id: true,
+        name: true,
+        birthday: true,
+        birthdayCalendar: true,
+        lunarMonth: true,
+        lunarDay: true,
+        lunarLeap: true,
+        profileType: true,
+      },
     }),
     prisma.topic.findMany({
       where: { householdId: context.household.id, status: "OPEN" },
@@ -141,11 +155,7 @@ export default async function TodayPage() {
   const upcomingItems: { key: string; title: string; at: Date; isAllDay: boolean; href: string }[] = [];
 
   for (const event of events) {
-    const rule = {
-      type: event.recurrenceType,
-      interval: event.recurrenceInterval,
-      until: event.recurrenceUntil,
-    };
+    const rule = eventRule(event);
     const todays = occurrencesBetween(event.startsAt, rule, dayStart.toJSDate(), dayEnd.toJSDate(), timezone, 4);
     for (const occurrence of todays) {
       todayItems.push({
@@ -200,11 +210,9 @@ export default async function TodayPage() {
   });
   upcomingItems.sort((a, b) => a.at.getTime() - b.at.getTime());
 
-  const birthdaysToday = profiles.filter((profile) => {
-    if (!profile.birthday) return false;
-    const birth = DateTime.fromJSDate(profile.birthday, { zone: timezone });
-    return birth.month === dayStart.month && birth.day === dayStart.day;
-  });
+  const birthdaysToday = profiles.filter((profile) =>
+    birthdayOccursOn(profile, dayStart, timezone),
+  );
 
   const recent = recentRows.map((entry) => toEntryCard(entry, viewer));
   const onThisDay = onThisDayRows.map((entry) => toEntryCard(entry, viewer));
@@ -315,7 +323,8 @@ export default async function TodayPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13.5px] font-medium">{profile.name} 的生日</p>
                   <p className="text-[11px] text-faint">
-                    {profile.profileType === "PET" ? "宠物生日" : "生日"}
+                    {birthdayLunarLabel(profile) ||
+                      (profile.profileType === "PET" ? "宠物生日" : "生日")}
                   </p>
                 </div>
                 <Link href={`/profiles/${profile.id}`} className="text-[11.5px] text-accent">

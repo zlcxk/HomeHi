@@ -87,6 +87,11 @@ model FamilyProfile {
   name           String
   avatarMediaId  String?
   birthday       DateTime?
+  // 农历生日按 solar 日期保存，同时保留原来的农历月日，用来计算下一次生日。
+  birthdayCalendar String  @default("SOLAR") // SOLAR | LUNAR
+  lunarMonth       Int?
+  lunarDay         Int?
+  lunarLeap        Boolean @default(false)
   joinedDate     DateTime?
   species        String?
   breed          String?
@@ -435,6 +440,11 @@ model CalendarEvent {
   startsAt           DateTime
   endsAt             DateTime?
   isAllDay           Boolean   @default(false)
+  // 农历日程：startsAt 仍是换算后的公历时间，农历字段用于每年的重复计算。
+  isLunar            Boolean   @default(false)
+  lunarMonth         Int?
+  lunarDay           Int?
+  lunarLeap          Boolean   @default(false)
   timezone           String
   recurrenceType     String    @default("NONE") // NONE | DAILY | WEEKLY | MONTHLY | YEARLY
   recurrenceInterval Int       @default(1)

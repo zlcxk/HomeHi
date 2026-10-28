@@ -11,8 +11,9 @@ import {
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { profileWhere, publishedEntryWhere } from "@/lib/access";
-import { ageLabel, daysUntil, formatDateFull, formatDayLabel, formatTime, nextBirthday } from "@/lib/dates";
-import { occurrencesBetween } from "@/lib/recurrence";
+import { ageLabel, daysUntil, formatDateFull, formatDayLabel, formatTime } from "@/lib/dates";
+import { birthdayLunarLabel, nextBirthdayOf } from "@/lib/birthdays";
+import { eventRule, occurrencesBetween } from "@/lib/recurrence";
 import { entryCardInclude, toEntryCard } from "@/lib/entries-view";
 import { parseStringArray } from "@/lib/json";
 import { deleteProfileAction } from "@/app/actions/profiles";
@@ -100,7 +101,7 @@ export default async function ProfileDetailPage({ params }: { params: Promise<{ 
   for (const event of relatedEvents) {
     for (const occurrence of occurrencesBetween(
       event.startsAt,
-      { type: event.recurrenceType, interval: event.recurrenceInterval, until: event.recurrenceUntil },
+      eventRule(event),
       now,
       horizon,
       timezone,
@@ -117,9 +118,10 @@ export default async function ProfileDetailPage({ params }: { params: Promise<{ 
   upcoming.sort((a, b) => a.at.getTime() - b.at.getTime());
 
   const entries = profile.entries.map((link) => toEntryCard(link.entry, viewer));
-  const birthday = nextBirthday(profile.birthday, timezone);
+  const birthday = nextBirthdayOf(profile, timezone);
   const countdown = birthday ? daysUntil(birthday, timezone) : null;
   const age = ageLabel(profile.birthday, timezone);
+  const lunarBirthday = birthdayLunarLabel(profile);
   const avatarUrl = avatar ? `/api/media/${avatar.id}/thumb` : null;
   const isSelf = profile.linkedUserId === context.user.id;
 
@@ -173,6 +175,7 @@ export default async function ProfileDetailPage({ params }: { params: Promise<{ 
             <span className="chip">
               <Cake size={12} />
               {formatDateFull(profile.birthday, timezone)}
+              {lunarBirthday ? ` · ${lunarBirthday}` : ""}
               {countdown !== null && countdown <= 30
                 ? ` · ${countdown === 0 ? "今天" : `${countdown} 天后`}`
                 : ""}

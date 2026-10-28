@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { saveProfileAction } from "@/app/actions/profiles";
 import { MediaUploader } from "@/components/MediaUploader";
+import { LunarDatePicker, type LunarInitial } from "@/components/pickers/LunarDatePicker";
 import { VisibilityControl } from "@/components/pickers/VisibilityControl";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -17,6 +18,8 @@ export type ProfileInitial = {
   profileType: string;
   name: string;
   birthday: string;
+  birthdayMode?: "SOLAR" | "LUNAR";
+  lunarBirthday?: LunarInitial | null;
   joinedDate: string;
   species: string;
   breed: string;
@@ -38,6 +41,9 @@ export function ProfileForm({
   const router = useRouter();
   const [state, action] = useActionState(saveProfileAction, initialState);
   const [type, setType] = useState(initial?.profileType || "PERSON");
+  const [birthdayMode, setBirthdayMode] = useState<"SOLAR" | "LUNAR">(
+    initial?.birthdayMode === "LUNAR" ? "LUNAR" : "SOLAR",
+  );
   const [visibility, setVisibility] = useState(
     initial?.visibility || (defaultVisibility === "PRIVATE" ? "PRIVATE" : "HOUSEHOLD"),
   );
@@ -158,31 +164,65 @@ export function ProfileForm({
             </div>
           ) : null}
 
-          <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <label className="label" htmlFor="profile-birthday">
+          <div>
+            <div className="mb-1.5 flex items-center justify-between gap-3">
+              <label className="label mb-0" htmlFor="profile-birthday">
                 生日
               </label>
-              <input
-                id="profile-birthday"
-                name="birthday"
-                type="date"
-                defaultValue={initial?.birthday || ""}
-                className="field"
-              />
+              <div
+                className="flex rounded-full border border-line bg-surface p-0.5"
+                role="group"
+                aria-label="生日历法"
+              >
+                {[
+                  { value: "SOLAR", label: "公历" },
+                  { value: "LUNAR", label: "农历" },
+                ].map((option) => {
+                  const active = birthdayMode === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setBirthdayMode(option.value as "SOLAR" | "LUNAR")}
+                      aria-pressed={active}
+                      className={`rounded-full px-2.5 py-1 text-[11px] transition ${
+                        active ? "bg-ink text-paper" : "text-muted hover:bg-raised"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div>
-              <label className="label" htmlFor="profile-joined">
-                {type === "PET" ? "到家日" : "加入这个家的日子"}
-              </label>
-              <input
-                id="profile-joined"
-                name="joinedDate"
-                type="date"
-                defaultValue={initial?.joinedDate || ""}
-                className="field"
-              />
-            </div>
+            <input type="hidden" name="birthdayMode" value={birthdayMode} />
+            <input
+              id="profile-birthday"
+              name="birthday"
+              type="date"
+              defaultValue={initial?.birthday || ""}
+              className={birthdayMode === "SOLAR" ? "field" : "hidden"}
+            />
+            <LunarDatePicker
+              namePrefix="birthdayLunar"
+              initial={initial?.lunarBirthday}
+              seedDate={initial?.birthday || undefined}
+              yearRange={[1900, new Date().getFullYear()]}
+              className={birthdayMode === "LUNAR" ? "" : "hidden"}
+            />
+          </div>
+
+          <div>
+            <label className="label" htmlFor="profile-joined">
+              {type === "PET" ? "到家日" : "加入这个家的日子"}
+            </label>
+            <input
+              id="profile-joined"
+              name="joinedDate"
+              type="date"
+              defaultValue={initial?.joinedDate || ""}
+              className="field"
+            />
           </div>
 
           <div>

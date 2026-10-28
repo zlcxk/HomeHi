@@ -3,7 +3,8 @@ import { Cake, PawPrint, Plus, Users } from "lucide-react";
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { profileWhere } from "@/lib/access";
-import { ageLabel, daysUntil, nextBirthday } from "@/lib/dates";
+import { ageLabel, daysUntil } from "@/lib/dates";
+import { nextBirthdayOf } from "@/lib/birthdays";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Avatar } from "@/components/Avatar";
@@ -45,7 +46,7 @@ export default async function ProfilesPage() {
       profile.avatarMediaId && allowedAvatars.has(profile.avatarMediaId)
         ? `/api/media/${profile.avatarMediaId}/thumb`
         : null;
-    const birthday = nextBirthday(profile.birthday, timezone);
+    const birthday = nextBirthdayOf(profile, timezone);
     const countdown = birthday ? daysUntil(birthday, timezone) : null;
     const age = ageLabel(profile.birthday, timezone);
 
