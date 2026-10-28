@@ -42,23 +42,14 @@ export function StorageForm({ driver, oss }: StorageFormProps) {
           <option value="LOCAL">本地磁盘</option>
           <option value="OSS">阿里云 OSS</option>
         </select>
-        <p className="field-hint">
-          切换只影响之后上传的新文件。已有文件的存放位置记录在每条媒体记录里，仍会从原来的位置读取。
-        </p>
       </div>
 
       <div className="flex items-center gap-2 rounded-xl bg-raised/60 px-3.5 py-2.5 text-[11px] text-muted">
         {kind === "LOCAL" ? <HardDrive size={14} /> : <Cloud size={14} />}
-        {kind === "LOCAL"
-          ? "照片和视频写入服务器磁盘的 STORAGE_DIR 目录。"
-          : "照片和视频写入阿里云 OSS，服务器只保留数据库。"}
+        {kind === "LOCAL" ? "照片和视频保存在本地磁盘。" : "照片和视频保存在阿里云 OSS。"}
       </div>
 
       <div className={`space-y-4 rounded-xl border border-line p-3.5 ${kind === "OSS" ? "" : "hidden"}`}>
-        <p className="text-[11px] leading-relaxed text-faint">
-          在阿里云控制台创建一个 Bucket，并为 HomeHi 单独创建一个只能读写该 Bucket 的 RAM 子账号。
-        </p>
-
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="label" htmlFor="oss-region">
@@ -111,9 +102,6 @@ export function StorageForm({ driver, oss }: StorageFormProps) {
             placeholder={oss?.hasSecret ? "已保存，留空则不修改" : "填写 AccessKey Secret"}
             className="field"
           />
-          <p className="field-hint">
-            Secret 以明文保存在本机 SQLite 数据库里，不会发送到浏览器。请限制数据库文件的访问权限。
-          </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -140,7 +128,6 @@ export function StorageForm({ driver, oss }: StorageFormProps) {
               placeholder="homehi"
               className="field"
             />
-            <p className="field-hint">所有对象会放在这个前缀下，便于和其他数据共用一个 Bucket。</p>
           </div>
         </div>
       </div>

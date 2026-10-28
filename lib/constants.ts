@@ -70,6 +70,8 @@ export const MEDIA_IMAGE_TYPES = [
   "image/webp",
   "image/gif",
   "image/avif",
+  "image/heic",
+  "image/heif",
 ] as const;
 
 export const MEDIA_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm", "video/x-m4v"] as const;
@@ -80,6 +82,8 @@ export const MIME_EXTENSION: Record<string, string> = {
   "image/webp": "webp",
   "image/gif": "gif",
   "image/avif": "avif",
+  "image/heic": "heic",
+  "image/heif": "heif",
   "video/mp4": "mp4",
   "video/quicktime": "mov",
   "video/webm": "webm",

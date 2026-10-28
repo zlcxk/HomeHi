@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const items = [
   { href: "/settings/profile", label: "账户" },
-  { href: "/settings/household", label: "家庭" },
+  { href: "/settings/household", label: "成员" },
   { href: "/settings/notifications", label: "通知" },
   { href: "/settings/email", label: "邮件" },
   { href: "/settings/storage", label: "存储" },

@@ -44,7 +44,10 @@ export default async function AddAlbumMediaPage({ params }: { params: Promise<{ 
         items={media.map((item) => ({
           id: item.id,
           mediaType: item.mediaType,
-          thumbUrl: item.thumbnailKey ? `/api/media/${item.id}/thumb` : null,
+          thumbUrl:
+            item.thumbnailKey || item.mediaType === "IMAGE"
+              ? `/api/media/${item.id}/thumb?v=${encodeURIComponent(item.thumbnailKey || "0")}`
+              : null,
           caption: item.caption,
         }))}
         action={addMediaToAlbumAction}

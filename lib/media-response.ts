@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Readable } from "node:stream";
 import { getStorageDriver, type StorageKind } from "@/lib/storage";
 
@@ -29,14 +30,27 @@ export async function storedFileResponse(
   const stat = options.size ? { size: options.size } : await driver.stat(options.key);
   if (!stat || stat.size <= 0) return null;
 
+  const etag = `W/"${createHash("sha1")
+    .update(`${options.key}\u0000${stat.size}`)
+    .digest("base64url")}"`;
   const headers: Record<string, string> = {
     "Content-Type": options.contentType,
     "Accept-Ranges": "bytes",
     "Cache-Control": options.cacheControl,
+    ETag: etag,
     "X-Content-Type-Options": "nosniff",
   };
   if (options.filename) {
     headers["Content-Disposition"] = contentDisposition(options.filename, Boolean(options.download));
+  }
+
+  // 同一存储 key 的内容不会变；浏览器再次打开时可只拿 304。
+  const ifNoneMatch = request.headers.get("if-none-match");
+  if (ifNoneMatch) {
+    const tags = ifNoneMatch.split(",").map((value) => value.trim());
+    if (tags.includes("*") || tags.includes(etag)) {
+      return new Response(null, { status: 304, headers });
+    }
   }
 
   const rangeHeader = request.headers.get("range");

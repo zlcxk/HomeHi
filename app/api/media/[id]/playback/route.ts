@@ -32,7 +32,8 @@ export async function GET(
     key: media.playbackKey,
     kind: media.storageDriver,
     contentType: "video/mp4",
-    cacheControl: "private, max-age=31536000, immutable",
+    // 播放版可能重新生成；ETag 负责失效，组件仍会带 ?v= 帮助浏览器更新。
+    cacheControl: "private, max-age=604800",
     filename,
   });
   return response ?? NextResponse.json({ error: "视频不存在" }, { status: 404 });

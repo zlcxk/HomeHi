@@ -68,8 +68,14 @@ export function toEntryCard(
         width: media.width,
         height: media.height,
         durationSeconds: media.durationSeconds,
-        thumbUrl: media.thumbnailKey ? `/api/media/${media.id}/thumb` : null,
-        url: `/api/media/${media.id}/file`,
+        // 图片即使还没有缩略图也可以走 /thumb：接口会按需生成，失败时回退到原图。
+        thumbUrl:
+          media.mediaType === "VIDEO"
+            ? media.thumbnailKey
+              ? `/api/media/${media.id}/thumb?v=${encodeURIComponent(media.thumbnailKey)}`
+              : null
+            : `/api/media/${media.id}/thumb?v=${encodeURIComponent(media.thumbnailKey || "0")}`,
+        url: `/api/media/${media.id}/file?v=${media.fileSize}`,
       })),
     profiles: entry.profiles.map((link) => ({
       id: link.profile.id,

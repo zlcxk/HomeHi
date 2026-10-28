@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Images,
   PenLine,
+  Play,
   Search as SearchIcon,
   Users,
 } from "lucide-react";
@@ -141,7 +142,7 @@ export default async function SearchPage({
       },
       orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
       take: 12,
-      select: { id: true, thumbnailKey: true, caption: true },
+      select: { id: true, mediaType: true, thumbnailKey: true, caption: true },
     }),
     prisma.calendarEvent.findMany({
       where: {
@@ -265,14 +266,19 @@ export default async function SearchPage({
                 href={`/photos/${item.id}`}
                 className="aspect-square overflow-hidden rounded-xl bg-raised"
               >
-                {item.thumbnailKey ? (
+                {item.mediaType === "VIDEO" && !item.thumbnailKey ? (
+                  <span className="flex h-full items-center justify-center text-faint">
+                    <Play size={18} />
+                  </span>
+                ) : (
                   <img
-                    src={`/api/media/${item.id}/thumb`}
+                    src={`/api/media/${item.id}/thumb?v=${encodeURIComponent(item.thumbnailKey || "0")}`}
                     alt={item.caption || ""}
                     loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover"
                   />
-                ) : null}
+                )}
               </Link>
             ))}
           </div>

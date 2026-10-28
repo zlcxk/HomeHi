@@ -7,29 +7,36 @@ import { mediaWhere } from "@/lib/access";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 
+const PAGE_SIZE = 60;
+
 export default async function PhotosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; page?: string }>;
 }) {
   const context = await requireContext();
   const viewer = { userId: context.user.id, householdId: context.household.id };
   const timezone = context.household.timezone;
-  const { view } = await searchParams;
+  const { view, page: pageParam } = await searchParams;
   const onlyFavorites = view === "favorites";
   const onlyVideos = view === "videos";
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const [media, albums] = await Promise.all([
+  const where = {
+    ...mediaWhere(viewer),
+    mediaType: onlyVideos ? "VIDEO" : undefined,
+    favorite: onlyFavorites ? true : undefined,
+  };
+
+  const [rows, total, albums] = await Promise.all([
     prisma.media.findMany({
-      where: {
-        ...mediaWhere(viewer),
-        mediaType: onlyVideos ? "VIDEO" : undefined,
-        favorite: onlyFavorites ? true : undefined,
-      },
+      where,
       orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
-      take: 300,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE + 1,
       include: { _count: { select: { albumLinks: true } } },
     }),
+    prisma.media.count({ where }),
     prisma.album.findMany({
       where: { householdId: context.household.id },
       orderBy: { updatedAt: "desc" },
@@ -45,6 +52,9 @@ export default async function PhotosPage({
     }),
   ]);
 
+  const hasMore = rows.length > PAGE_SIZE;
+  const media = rows.slice(0, PAGE_SIZE);
+
   const groups = new Map<string, typeof media>();
   for (const item of media) {
     const date = DateTime.fromJSDate(item.takenAt ?? item.createdAt, { zone: timezone }).setLocale("zh-CN");
@@ -55,6 +65,10 @@ export default async function PhotosPage({
   }
 
   const filtered = onlyFavorites || onlyVideos;
+  const nextParams = new URLSearchParams();
+  if (onlyFavorites) nextParams.set("view", "favorites");
+  if (onlyVideos) nextParams.set("view", "videos");
+  nextParams.set("page", String(page + 1));
 
   return (
     <div>
@@ -88,9 +102,12 @@ export default async function PhotosPage({
                   <div className="aspect-[4/5] overflow-hidden rounded-2xl border border-line bg-raised">
                     {cover?.thumbnailKey ? (
                       <img
-                        src={`/api/media/${cover.id}/thumb`}
+                        src={`/api/media/${cover.id}/thumb?v=${encodeURIComponent(cover.thumbnailKey || "0")}`}
                         alt=""
                         loading="lazy"
+                        decoding="async"
+                        width={132}
+                        height={165}
                         className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
                       />
                     ) : (
@@ -118,7 +135,7 @@ export default async function PhotosPage({
         <Link href="/photos?view=videos" className={`chip ${onlyVideos ? "chip-active" : ""}`}>
           <Film size={12} /> 视频
         </Link>
-        <span className="ml-auto text-[11px] text-faint">{media.length} 项</span>
+        <span className="ml-auto text-[11px] text-faint">{total} 项</span>
       </div>
 
       {media.length === 0 ? (
@@ -147,11 +164,14 @@ export default async function PhotosPage({
                     href={`/photos/${item.id}`}
                     className="group relative aspect-square overflow-hidden rounded-xl bg-raised"
                   >
-                    {item.thumbnailKey ? (
+                    {item.mediaType === "IMAGE" || item.thumbnailKey ? (
                       <img
-                        src={`/api/media/${item.id}/thumb`}
+                        src={`/api/media/${item.id}/thumb?v=${encodeURIComponent(item.thumbnailKey || "0")}`}
                         alt={item.caption || ""}
                         loading="lazy"
+                        decoding="async"
+                        width={240}
+                        height={240}
                         className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
                       />
                     ) : (
@@ -174,6 +194,13 @@ export default async function PhotosPage({
               </div>
             </section>
           ))}
+          {hasMore ? (
+            <div className="pt-1 text-center">
+              <Link href={`/photos?${nextParams.toString()}`} scroll={false} className="btn btn-outline btn-sm">
+                加载更多
+              </Link>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

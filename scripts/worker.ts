@@ -11,6 +11,7 @@ import {
   requeueVideosWithoutFfmpeg,
   resolveFfmpeg,
 } from "../lib/video";
+import { drainImageQueue, recoverStaleImageJobs } from "../lib/media-jobs";
 
 const POLL_SECONDS = Math.max(5, Number(process.env.WORKER_POLL_SECONDS || 30));
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -217,6 +218,7 @@ async function main() {
   );
   await prisma.$connect();
   await recoverStaleVideoJobs();
+  await recoverStaleImageJobs();
   const ffmpeg = await resolveFfmpeg();
   log(`video compression ${ffmpeg ? `ready (${ffmpeg})` : "unavailable; videos will keep the original file"}`);
   const requeued = await requeueVideosWithoutFfmpeg();
@@ -233,8 +235,10 @@ async function main() {
       if (Date.now() - lastVideoRecovery > 10 * 60_000) {
         lastVideoRecovery = Date.now();
         await recoverStaleVideoJobs();
+        await recoverStaleImageJobs();
       }
-      // 视频压缩比较慢，放到后台跑；提醒发送不被它挡住。
+      // 图片变体很轻，先排干；视频压缩比较慢，放到后台跑。
+      void drainImageQueue();
       void drainVideoQueue();
     } catch (error) {
       log("cycle failed", error);

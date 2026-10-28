@@ -45,10 +45,17 @@ export async function POST(request: Request) {
         durationSeconds: media.durationSeconds,
         mimeType: media.mimeType,
         originalFilename: media.originalFilename,
-        thumbUrl: media.thumbnailKey ? `/api/media/${media.id}/thumb` : null,
-        displayUrl: media.displayKey ? `/api/media/${media.id}/display` : null,
+        // 图片的缩略图和预览图可能还在后台生成，/thumb 与 /display 会按需补齐。
+        thumbUrl:
+          media.thumbnailKey || media.mediaType === "IMAGE"
+            ? `/api/media/${media.id}/thumb?v=${encodeURIComponent(media.thumbnailKey || "0")}`
+            : null,
+        displayUrl:
+          media.displayKey || media.mediaType === "IMAGE"
+            ? `/api/media/${media.id}/display?v=${media.displaySize ?? media.fileSize}`
+            : null,
         playbackStatus: media.playbackStatus,
-        url: `/api/media/${media.id}/file`,
+        url: `/api/media/${media.id}/file?v=${media.fileSize}`,
       },
     });
   } catch (error) {

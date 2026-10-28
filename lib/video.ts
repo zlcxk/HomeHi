@@ -7,12 +7,13 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { prisma } from "@/lib/db";
 import { getStorageDriver, makePlaybackKey } from "@/lib/storage";
-import { storeThumbnail } from "@/lib/media-variants";
+import { storeThumbnail, VIDEO_COVER_MAX } from "@/lib/media-variants";
 
 const MAX_EDGE = 1280;
 const MAX_TRANSCODE_MS = 30 * 60_000;
 const SKIP_IF_SMALLER_THAN = 10 * 1024 * 1024;
 const SAME_QUALITY_RATIO = 0.98;
+const SAFE_CODECS = new Set(["h264", "vp8", "vp9", "av1"]);
 
 let resolved: string | null | undefined;
 let draining = false;
@@ -68,6 +69,34 @@ function runFfmpeg(command: string, args: string[], timeoutMs: number): Promise<
   });
 }
 
+/** ffmpeg 没有 ffprobe 时也能从 -i 的 stderr 里读到编码。 */
+function probeVideoCodec(command: string, file: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const child = spawn(command, ["-hide_banner", "-i", file], {
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      stderr = (stderr + chunk).slice(-8000);
+    });
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      resolve(null);
+    }, 15_000);
+    timer.unref();
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve(null);
+    });
+    child.on("close", () => {
+      clearTimeout(timer);
+      const match = /Video:\s*([a-zA-Z0-9_]+)/.exec(stderr);
+      resolve(match ? match[1].toLowerCase() : null);
+    });
+  });
+}
+
 async function streamToFile(stream: NodeJS.ReadableStream, target: string): Promise<void> {
   await pipeline(stream, createWriteStream(target));
 }
@@ -80,36 +109,136 @@ function outputExtension(mimeType: string): string {
 
 async function claimNextVideo() {
   const candidate = await prisma.media.findFirst({
-    where: { mediaType: "VIDEO", status: "ACTIVE", playbackStatus: "PENDING" },
+    where: {
+      mediaType: "VIDEO",
+      status: "ACTIVE",
+      OR: [{ playbackStatus: "PENDING" }, { thumbnailStatus: "PENDING" }],
+    },
     orderBy: { createdAt: "asc" },
   });
   if (!candidate) return null;
 
+  const data: {
+    playbackStatus?: string;
+    playbackError?: null;
+    thumbnailStatus?: string;
+    thumbnailError?: null;
+  } = {};
+  if (candidate.playbackStatus === "PENDING") {
+    data.playbackStatus = "PROCESSING";
+    data.playbackError = null;
+  }
+  if (candidate.thumbnailStatus === "PENDING") {
+    data.thumbnailStatus = "PROCESSING";
+    data.thumbnailError = null;
+  }
+  if (Object.keys(data).length === 0) return null;
+
   const claimed = await prisma.media.updateMany({
-    where: { id: candidate.id, playbackStatus: "PENDING" },
-    data: { playbackStatus: "PROCESSING", playbackError: null },
+    where: {
+      id: candidate.id,
+      playbackStatus: candidate.playbackStatus,
+      thumbnailStatus: candidate.thumbnailStatus,
+    },
+    data,
   });
-  return claimed.count === 1 ? candidate : null;
+  if (claimed.count !== 1) return null;
+  return prisma.media.findUnique({ where: { id: candidate.id } });
 }
 
 async function markSkipped(id: string, reason: string): Promise<void> {
   await prisma.media
-    .update({ where: { id }, data: { playbackStatus: "SKIPPED", playbackError: reason } })
+    .updateMany({
+      where: { id, playbackStatus: "PROCESSING" },
+      data: { playbackStatus: "SKIPPED", playbackError: reason },
+    })
     .catch(() => undefined);
+}
+
+function coverTimestamp(durationSeconds: number | null): number {
+  if (!durationSeconds) return 1;
+  return Math.max(
+    0.5,
+    Math.min(durationSeconds * (0.15 + Math.random() * 0.7), durationSeconds - 0.1),
+  );
+}
+
+async function generateCover(
+  ffmpeg: string,
+  inputPath: string,
+  tempDir: string,
+  media: NonNullable<Awaited<ReturnType<typeof claimNextVideo>>>,
+) {
+  const driver = await getStorageDriver(media.storageDriver);
+  const posterPath = path.join(tempDir, "poster.jpg");
+  try {
+    await runFfmpeg(
+      ffmpeg,
+      [
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-ss",
+        String(coverTimestamp(media.durationSeconds)),
+        "-i",
+        inputPath,
+        "-frames:v",
+        "1",
+        "-vf",
+        `scale='min(${VIDEO_COVER_MAX},iw)':-2`,
+        "-q:v",
+        "3",
+        posterPath,
+      ],
+      60_000,
+    );
+    const thumb = await storeThumbnail(await readFile(posterPath), driver, VIDEO_COVER_MAX);
+    if (!thumb) throw new Error("无法写入视频封面");
+    await prisma.media.update({
+      where: { id: media.id },
+      data: {
+        thumbnailKey: thumb.key,
+        thumbnailWidth: thumb.width,
+        thumbnailHeight: thumb.height,
+        thumbnailStatus: "READY",
+        thumbnailError: null,
+      },
+    });
+    if (media.thumbnailKey && media.thumbnailKey !== thumb.key) {
+      await driver.remove(media.thumbnailKey).catch(() => undefined);
+    }
+  } catch (error) {
+    const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
+    await prisma.media
+      .updateMany({
+        where: { id: media.id, thumbnailStatus: "PROCESSING" },
+        data: { thumbnailStatus: "FAILED", thumbnailError: message },
+      })
+      .catch(() => undefined);
+  }
 }
 
 async function processVideo(media: NonNullable<Awaited<ReturnType<typeof claimNextVideo>>>): Promise<void> {
   const ffmpeg = await resolveFfmpeg();
+  const shouldTranscode = media.playbackStatus === "PROCESSING";
+  const shouldCover = media.thumbnailStatus === "PROCESSING" || !media.thumbnailKey;
+
   if (!ffmpeg) {
-    await markSkipped(media.id, "服务器未安装 ffmpeg，视频保留原片。安装 ffmpeg 后重新压缩即可生成播放版。");
+    const reason = "服务器未安装 ffmpeg，视频保留原片。安装 ffmpeg 后重新压缩即可生成播放版。";
+    if (shouldCover) {
+      await prisma.media
+        .updateMany({
+          where: { id: media.id, thumbnailStatus: "PROCESSING" },
+          data: { thumbnailStatus: "FAILED", thumbnailError: reason },
+        })
+        .catch(() => undefined);
+    }
+    if (shouldTranscode) await markSkipped(media.id, reason);
     return;
   }
 
-  const maxEdge = Math.max(media.width || 0, media.height || 0);
-  if (media.fileSize <= SKIP_IF_SMALLER_THAN && maxEdge > 0 && maxEdge <= MAX_EDGE) {
-    await markSkipped(media.id, "原视频已经足够小，保留原片。");
-    return;
-  }
+  if (!shouldTranscode && !shouldCover) return;
 
   const driver = await getStorageDriver(media.storageDriver);
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "homehi-video-"));
@@ -119,56 +248,38 @@ async function processVideo(media: NonNullable<Awaited<ReturnType<typeof claimNe
   try {
     const object = await driver.get(media.storageKey);
     if (!object) {
-      await markSkipped(media.id, "找不到原视频，保留原片。");
+      const reason = "找不到原视频，保留原片。";
+      if (shouldCover) {
+        await prisma.media
+          .updateMany({
+            where: { id: media.id, thumbnailStatus: "PROCESSING" },
+            data: { thumbnailStatus: "FAILED", thumbnailError: reason },
+          })
+          .catch(() => undefined);
+      }
+      if (shouldTranscode) await markSkipped(media.id, reason);
       return;
     }
     await streamToFile(object.stream, inputPath);
 
-    // 浏览器没能生成封面时（部分 iOS 版本会失败），由服务器补一张。
-    if (!media.thumbnailKey) {
-      const posterPath = path.join(tempDir, "poster.jpg");
-      // 和前端截帧一致：跳过开头和结尾，在中间 15%–85% 随机取一帧作为封面。
-      const at = media.durationSeconds
-        ? Math.max(
-            0.5,
-            Math.min(
-              media.durationSeconds * (0.15 + Math.random() * 0.7),
-              media.durationSeconds - 0.1,
-            ),
-          )
-        : 1;
-      try {
-        await runFfmpeg(
-          ffmpeg,
-          [
-            "-y",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-ss",
-            String(at),
-            "-i",
-            inputPath,
-            "-frames:v",
-            "1",
-            "-vf",
-            `scale='min(${MAX_EDGE},iw)':-2`,
-            "-q:v",
-            "3",
-            posterPath,
-          ],
-          60_000,
-        );
-        const thumb = await storeThumbnail(await readFile(posterPath), driver);
-        if (thumb) {
-          await prisma.media.update({
-            where: { id: media.id },
-            data: { thumbnailKey: thumb.key },
-          });
-        }
-      } catch {
-        // 封面是增强项，失败不影响视频播放。
-      }
+    // 封面和压缩互不影响：封面失败，原视频仍能正常打开。
+    if (shouldCover) await generateCover(ffmpeg, inputPath, tempDir, media);
+
+    if (!shouldTranscode) return;
+
+    const maxEdge = Math.max(media.width || 0, media.height || 0);
+    const codec = await probeVideoCodec(ffmpeg, inputPath);
+    const safeContainer = media.mimeType === "video/mp4" || media.mimeType === "video/webm";
+    const safeCodec = codec !== null && SAFE_CODECS.has(codec);
+    if (
+      media.fileSize <= SKIP_IF_SMALLER_THAN &&
+      maxEdge > 0 &&
+      maxEdge <= MAX_EDGE &&
+      safeContainer &&
+      safeCodec
+    ) {
+      await markSkipped(media.id, "原视频已经足够小，保留原片。");
+      return;
     }
 
     await runFfmpeg(
@@ -229,16 +340,23 @@ async function processVideo(media: NonNullable<Awaited<ReturnType<typeof claimNe
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    await prisma.media
-      .update({
-        where: { id: media.id },
-        data: {
-          playbackStatus: "FAILED",
-          playbackError: message.slice(0, 500),
-        },
-      })
-      .catch(() => undefined);
+    const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
+    if (shouldCover) {
+      await prisma.media
+        .updateMany({
+          where: { id: media.id, thumbnailStatus: "PROCESSING" },
+          data: { thumbnailStatus: "FAILED", thumbnailError: message },
+        })
+        .catch(() => undefined);
+    }
+    if (shouldTranscode) {
+      await prisma.media
+        .updateMany({
+          where: { id: media.id, playbackStatus: "PROCESSING" },
+          data: { playbackStatus: "FAILED", playbackError: message },
+        })
+        .catch(() => undefined);
+    }
   } finally {
     await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
   }
@@ -246,7 +364,7 @@ async function processVideo(media: NonNullable<Awaited<ReturnType<typeof claimNe
 
 /**
  * 后台处理一个视频。返回是否尝试过任务，worker 可以循环调用直到队列为空。
- * 视频压缩不阻塞提醒发送：worker 把它作为独立 Promise 启动。
+ * 只缺封面的视频也会进队列；压缩和封面互不阻塞。
  */
 export async function processNextVideoJob(): Promise<boolean> {
   const media = await claimNextVideo();
@@ -254,12 +372,17 @@ export async function processNextVideoJob(): Promise<boolean> {
   try {
     await processVideo(media);
   } catch (error) {
-    // 兜底：不能让一个视频把整个队列留在 PROCESSING。
-    const message = error instanceof Error ? error.message : String(error);
+    const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
     await prisma.media
-      .update({
-        where: { id: media.id },
-        data: { playbackStatus: "FAILED", playbackError: message.slice(0, 500) },
+      .updateMany({
+        where: { id: media.id, playbackStatus: "PROCESSING" },
+        data: { playbackStatus: "FAILED", playbackError: message },
+      })
+      .catch(() => undefined);
+    await prisma.media
+      .updateMany({
+        where: { id: media.id, thumbnailStatus: "PROCESSING" },
+        data: { thumbnailStatus: "FAILED", thumbnailError: message },
       })
       .catch(() => undefined);
     console.error("[video] job failed", media.id, error);
@@ -283,14 +406,33 @@ export async function drainVideoQueue(): Promise<void> {
 
 /** worker 崩溃后，把长时间停留在 PROCESSING 的任务放回队列。 */
 export async function recoverStaleVideoJobs(): Promise<void> {
-  await prisma.media.updateMany({
+  const before = new Date(Date.now() - MAX_TRANSCODE_MS);
+  const stale = await prisma.media.findMany({
     where: {
       mediaType: "VIDEO",
-      playbackStatus: "PROCESSING",
-      updatedAt: { lt: new Date(Date.now() - MAX_TRANSCODE_MS) },
+      updatedAt: { lt: before },
+      OR: [{ playbackStatus: "PROCESSING" }, { thumbnailStatus: "PROCESSING" }],
     },
-    data: { playbackStatus: "PENDING" },
+    select: { id: true, playbackStatus: true, thumbnailStatus: true },
   });
+  for (const row of stale) {
+    if (row.playbackStatus === "PROCESSING") {
+      await prisma.media
+        .updateMany({
+          where: { id: row.id, playbackStatus: "PROCESSING" },
+          data: { playbackStatus: "PENDING" },
+        })
+        .catch(() => undefined);
+    }
+    if (row.thumbnailStatus === "PROCESSING") {
+      await prisma.media
+        .updateMany({
+          where: { id: row.id, thumbnailStatus: "PROCESSING" },
+          data: { thumbnailStatus: "PENDING" },
+        })
+        .catch(() => undefined);
+    }
+  }
 }
 
 /**
@@ -299,7 +441,7 @@ export async function recoverStaleVideoJobs(): Promise<void> {
  */
 export async function requeueVideosWithoutFfmpeg(): Promise<number> {
   if (!(await resolveFfmpeg())) return 0;
-  const result = await prisma.media.updateMany({
+  const playback = await prisma.media.updateMany({
     where: {
       mediaType: "VIDEO",
       status: "ACTIVE",
@@ -308,5 +450,14 @@ export async function requeueVideosWithoutFfmpeg(): Promise<number> {
     },
     data: { playbackStatus: "PENDING", playbackError: null },
   });
-  return result.count;
+  await prisma.media.updateMany({
+    where: {
+      mediaType: "VIDEO",
+      status: "ACTIVE",
+      thumbnailStatus: "FAILED",
+      thumbnailError: { contains: "ffmpeg" },
+    },
+    data: { thumbnailStatus: "PENDING", thumbnailError: null },
+  });
+  return playback.count;
 }

@@ -469,14 +469,13 @@ export default async function TodayPage() {
                 href={`/photos/${photo.id}`}
                 className="media-frame aspect-square rounded-xl"
               >
-                {photo.thumbnailKey ? (
-                  <img
-                    src={`/api/media/${photo.id}/thumb`}
-                    alt=""
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
-                ) : null}
+                <img
+                  src={`/api/media/${photo.id}/thumb?v=${encodeURIComponent(photo.thumbnailKey || "0")}`}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
               </Link>
             ))}
           </div>

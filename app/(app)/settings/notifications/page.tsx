@@ -19,9 +19,6 @@ export default async function NotificationSettingsPage() {
           notifyTask={context.user.notifyTask}
           notifyOther={context.user.notifyOther}
         />
-        <p className="mt-2 text-[10.5px] leading-relaxed text-faint">
-          日程和待办可以为每个事项单独选择提醒时间。取消或完成事项后，未发送的提醒会自动取消。
-        </p>
       </div>
 
       <Link

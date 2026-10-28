@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * 详情页默认加载的中等尺寸 WebP。GIF、动图或生成失败时退回原始文件，
- * 但只要是静态照片，都会先压缩到最长边 1920，原图仍可通过 /file 查看。
+ * 但只要是静态照片，都会先压缩到最长边 960，原图仍可通过 /file 查看。
  */
 export async function GET(
   request: Request,
@@ -39,7 +39,8 @@ export async function GET(
         key: displayKey,
         kind: media.storageDriver,
         contentType: "image/webp",
-        cacheControl: "private, max-age=31536000, immutable",
+        // URL 不带版本号，因此不能标 immutable；ETag 会在重新生成后让旧缓存失效。
+        cacheControl: "private, max-age=86400",
         size: stat.size,
       });
       if (response) return response;

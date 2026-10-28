@@ -53,10 +53,10 @@ export default async function AlbumDetailPage({ params }: { params: Promise<{ id
         </div>
       </header>
 
-      {cover?.thumbnailKey ? (
+      {cover && (cover.thumbnailKey || cover.mediaType === "IMAGE") ? (
         <div className="relative mb-6 overflow-hidden rounded-[26px] bg-raised">
           <img
-            src={`/api/media/${cover.id}/thumb`}
+            src={`/api/media/${cover.id}/thumb?v=${encodeURIComponent(cover.thumbnailKey || "0")}`}
             alt=""
             className="aspect-[16/9] w-full object-cover"
           />
@@ -99,17 +99,18 @@ export default async function AlbumDetailPage({ params }: { params: Promise<{ id
           {items.map((item) => (
             <div key={item.id} className="group relative aspect-square overflow-hidden rounded-xl bg-raised">
               <Link href={`/photos/${item.id}`} className="block h-full w-full">
-                {item.thumbnailKey ? (
-                  <img
-                    src={`/api/media/${item.id}/thumb`}
-                    alt={item.caption || ""}
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
+                {item.mediaType === "VIDEO" && !item.thumbnailKey ? (
                   <span className="flex h-full items-center justify-center text-faint">
                     <Play size={18} />
                   </span>
+                ) : (
+                  <img
+                    src={`/api/media/${item.id}/thumb?v=${encodeURIComponent(item.thumbnailKey || "0")}`}
+                    alt={item.caption || ""}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
                 )}
               </Link>
 

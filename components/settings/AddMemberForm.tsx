@@ -26,10 +26,7 @@ export function AddMemberForm() {
     <form action={action} className="card p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-[13px] font-semibold">添加家庭成员</h2>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-faint">
-            HomeHi 是自托管的私人空间，不会自动发送邀请邮件。创建账号后，请把邮箱和临时密码直接告诉对方。
-          </p>
+          <h2 className="text-[13px] font-semibold">邀请家庭成员</h2>
         </div>
       </div>
 
@@ -87,7 +84,7 @@ export function AddMemberForm() {
             <RefreshCw size={13} /> 生成
           </button>
         </div>
-        <p className="field-hint">对方登录后可以在「设置 → 账户」里修改密码。</p>
+        <p className="field-hint">对方登录后可在「设置 → 账户」修改密码。</p>
       </div>
 
       {state.error || state.success ? (

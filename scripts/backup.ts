@@ -13,7 +13,7 @@ function databasePath(): string {
 
 async function main() {
   const stamp = DateTime.now().toFormat("yyyyLLdd-HHmmss");
-  const destination = path.resolve("backups", `homehi-${stamp}`);
+  const destination = path.resolve(process.env.BACKUP_DIR || "backups", `homehi-${stamp}`);
   const dbFile = databasePath();
   const storage = storageRoot();
   const storageConfig = await getStorageConfig().catch(() => null);

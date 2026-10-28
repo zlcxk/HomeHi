@@ -10,7 +10,11 @@ import {
   MIME_EXTENSION,
 } from "@/lib/constants";
 import { getStorageDriver, makeStorageKey } from "@/lib/storage";
-import { storeDisplayImage, storeThumbnail } from "@/lib/media-variants";
+import {
+  VIDEO_COVER_MAX,
+  ensureThumbnail,
+  storeThumbnail,
+} from "@/lib/media-variants";
 import type { AppContext } from "@/lib/auth";
 
 const IMAGE_TYPES = new Set<string>(MEDIA_IMAGE_TYPES);
@@ -107,6 +111,8 @@ export type UploadedMedia = {
   durationSeconds: number | null;
   thumbnailKey: string | null;
   displayKey: string | null;
+  displaySize: number | null;
+  fileSize: number;
   playbackStatus: string;
   mimeType: string;
   originalFilename: string;
@@ -123,11 +129,11 @@ export async function processMediaUpload(
     throw new Error(`文件超过 ${Math.round(maxUploadBytes() / 1024 / 1024)} MB 上限`);
   }
   const mime = resolveUploadMime(file.type, file.name);
-  if (HEIC_TYPES.has(mime)) {
-    throw new Error("iPhone 的 HEIC 照片暂不能直接上传。请在相册导出为 JPG，或改用「拍照」按钮");
+  if (HEIC_TYPES.has(mime) && !sharp.format.heif?.input?.buffer) {
+    throw new Error("当前安装的图片引擎不能读取 HEIC。请在相册导出为 JPG，或改用「拍照」按钮");
   }
   if (!isAllowedMime(mime)) {
-    throw new Error("暂不支持这种文件类型，请上传 JPG / PNG / WebP / GIF / MP4 / MOV / M4V / WebM");
+    throw new Error("暂不支持这种文件类型，请上传 JPG / PNG / WebP / HEIC / GIF / MP4 / MOV / M4V / WebM");
   }
   if (poster && !IMAGE_TYPES.has(poster.type)) {
     throw new Error("视频封面格式不正确");
@@ -143,13 +149,16 @@ export async function processMediaUpload(
 
   const isImage = IMAGE_TYPES.has(mime);
   let thumbnailKey: string | null = null;
-  let displayKey: string | null = null;
-  let displaySize: number | null = null;
+  let thumbnailWidth: number | null = null;
+  let thumbnailHeight: number | null = null;
+  let thumbnailStatus = "PENDING";
+  let displayStatus = isImage ? "PENDING" : "SKIPPED";
+  let displayError: string | null = null;
   let width: number | null = null;
   let height: number | null = null;
   let durationSeconds: number | null = null;
   let takenAt: Date | null = null;
-  let mediaType: string = isImage ? "IMAGE" : "VIDEO";
+  const mediaType: string = isImage ? "IMAGE" : "VIDEO";
   let playbackStatus = "PENDING";
 
   if (isImage) {
@@ -158,13 +167,10 @@ export async function processMediaUpload(
     height = meta.height;
     takenAt = meta.takenAt;
     playbackStatus = "READY";
-    const thumb = await storeThumbnail(buffer, driver);
-    thumbnailKey = thumb?.key ?? null;
-    // GIF / 动态 WebP 转成静态图会丢动画，保留原文件作为展示版本。
-    if (!meta.animated && mime !== "image/gif") {
-      const display = await storeDisplayImage(buffer, driver);
-      displayKey = display?.key ?? null;
-      displaySize = display?.size ?? null;
+    // 动图转静态 WebP 会丢帧，详情页保留原文件；列表仍用第一帧缩略图。
+    if (meta.animated || mime === "image/gif") {
+      displayStatus = "SKIPPED";
+      displayError = "动图保留原文件";
     }
   } else {
     const clientWidth = Number(fields.clientWidth);
@@ -177,8 +183,11 @@ export async function processMediaUpload(
     if (poster) {
       const posterBuffer = Buffer.from(await poster.arrayBuffer());
       if (posterBuffer.length <= 8 * 1024 * 1024) {
-        const thumb = await storeThumbnail(posterBuffer, driver);
+        const thumb = await storeThumbnail(posterBuffer, driver, VIDEO_COVER_MAX);
         thumbnailKey = thumb?.key ?? null;
+        thumbnailWidth = thumb?.width ?? null;
+        thumbnailHeight = thumb?.height ?? null;
+        thumbnailStatus = thumb ? "READY" : "FAILED";
         if (!width || !height) {
           try {
             const meta = await sharp(posterBuffer, { failOn: "none" }).metadata();
@@ -207,8 +216,11 @@ export async function processMediaUpload(
       storageKey,
       storageDriver: driver.kind,
       thumbnailKey,
-      displayKey,
-      displaySize,
+      thumbnailWidth,
+      thumbnailHeight,
+      thumbnailStatus,
+      displayStatus,
+      displayError,
       playbackStatus,
       width,
       height,
@@ -219,6 +231,11 @@ export async function processMediaUpload(
     },
   });
 
+  // 上传响应先返回；缩略图在后台补。没有 worker 时，列表第一次请求也会兜底生成。
+  if (isImage) {
+    void ensureThumbnail(media).catch(() => undefined);
+  }
+
   return {
     id: media.id,
     mediaType,
@@ -227,6 +244,8 @@ export async function processMediaUpload(
     durationSeconds: media.durationSeconds,
     thumbnailKey: media.thumbnailKey,
     displayKey: media.displayKey,
+    displaySize: media.displaySize,
+    fileSize: media.fileSize,
     playbackStatus: media.playbackStatus,
     mimeType: media.mimeType,
     originalFilename: media.originalFilename,

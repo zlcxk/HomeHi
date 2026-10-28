@@ -53,10 +53,6 @@ export default async function AccountSettingsPage() {
           <LogOut size={14} /> 退出登录
         </button>
       </form>
-
-      <p className="pt-2 text-[10.5px] leading-relaxed text-faint">
-        HomeHi 把数据存在你自己的服务器上。没有广告，没有分析脚本，也不会把家庭内容发给第三方。
-      </p>
     </div>
   );
 }

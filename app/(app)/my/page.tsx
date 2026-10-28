@@ -64,11 +64,11 @@ export default async function MyPage() {
 
   const links = [
     { href: "/settings/profile", label: "账户与密码", icon: Settings, hint: "称呼、默认隐私、密码" },
-    { href: "/settings/household", label: "家庭成员", icon: Users, hint: `${memberCount} 位成员` },
+    { href: "/settings/household", label: "成员与邀请", icon: Users, hint: `${memberCount} 位成员` },
     { href: "/notifications", label: "提醒记录", icon: BellRing, hint: "已发送与失败的邮件" },
     { href: "/settings/email", label: "邮件设置", icon: Mail, hint: "SMTP 与测试" },
-    { href: "/settings/data", label: "数据与备份", icon: Database, hint: "导出、示例数据" },
-    { href: "/settings/appearance", label: "外观", icon: Palette, hint: "浅色 / 深色" },
+    { href: "/settings/data", label: "数据与导出", icon: Database, hint: "导出、示例数据" },
+    { href: "/settings/appearance", label: "外观", icon: Palette, hint: "配色与明暗" },
     { href: "/trash", label: "回收站", icon: Trash2, hint: trashCount > 0 ? `${trashCount} 条待处理` : "空的" },
   ];
 

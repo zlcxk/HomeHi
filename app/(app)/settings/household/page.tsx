@@ -81,9 +81,6 @@ export default async function HouseholdSettingsPage() {
             </div>
           ))}
         </div>
-        <p className="mt-2 text-[10.5px] leading-relaxed text-faint">
-          每个账号只能看到自己家庭空间里的内容。移出成员不会删除 TA 写下的记录。
-        </p>
       </section>
 
       {isOwner ? <AddMemberForm /> : null}

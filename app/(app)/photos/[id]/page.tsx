@@ -16,6 +16,7 @@ import { formatBytes } from "@/lib/format";
 import { deleteMediaAction } from "@/app/actions/media";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { MediaEditor } from "@/components/photos/MediaEditor";
+import { VideoPlayer } from "@/components/media/VideoPlayer";
 
 export default async function PhotoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -59,11 +60,13 @@ export default async function PhotoDetailPage({ params }: { params: Promise<{ id
   const canEdit = media.uploadedBy === context.user.id || context.role === "OWNER";
   const takenAt = media.takenAt ?? media.createdAt;
   const playbackReady = Boolean(media.playbackKey) && media.playbackStatus === "READY";
+  const originalVideoSrc = `/api/media/${media.id}/file?v=${media.fileSize}`;
   const videoSrc = playbackReady
-    ? `/api/media/${media.id}/playback`
-    : `/api/media/${media.id}/file`;
+    ? `/api/media/${media.id}/playback?v=${media.playbackSize ?? 0}`
+    : originalVideoSrc;
   const optimizingVideo =
-    media.mediaType === "VIDEO" && media.playbackStatus === "PENDING";
+    media.mediaType === "VIDEO" &&
+    (media.playbackStatus === "PENDING" || media.playbackStatus === "PROCESSING");
 
   return (
     <div>
@@ -97,23 +100,28 @@ export default async function PhotoDetailPage({ params }: { params: Promise<{ id
 
       <div className="relative overflow-hidden rounded-[24px] bg-black">
         {media.mediaType === "VIDEO" ? (
-          <video
-            controls
-            autoPlay
-            playsInline
-            poster={media.thumbnailKey ? `/api/media/${media.id}/thumb` : undefined}
-            className="max-h-[76vh] w-full"
+          <VideoPlayer
             src={videoSrc}
+            originalSrc={playbackReady ? originalVideoSrc : null}
+            poster={
+              media.thumbnailKey
+                ? `/api/media/${media.id}/thumb?v=${encodeURIComponent(media.thumbnailKey)}`
+                : null
+            }
+            videoClassName="max-h-[76vh] w-full"
           />
         ) : (
           <>
             <img
-              src={`/api/media/${media.id}/display`}
+              src={`/api/media/${media.id}/display?v=${media.displaySize ?? media.fileSize}`}
               alt={media.caption || "照片"}
+              width={media.displayWidth ?? media.width ?? undefined}
+              height={media.displayHeight ?? media.height ?? undefined}
+              decoding="async"
               className="max-h-[76vh] w-full object-contain"
             />
             <a
-              href={`/api/media/${media.id}/file`}
+              href={`/api/media/${media.id}/file?v=${media.fileSize}`}
               target="_blank"
               rel="noreferrer"
               className="absolute bottom-2.5 right-2.5 rounded-full bg-black/45 px-3 py-1.5 text-[10.5px] text-white backdrop-blur transition hover:bg-black/65"

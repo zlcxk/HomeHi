@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Database, Download, HardDrive, Sparkles, Trash2 } from "lucide-react";
+import { Download, HardDrive, Sparkles, Trash2 } from "lucide-react";
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { STORAGE_KIND_LABEL, getStorageConfig, storageUsage } from "@/lib/storage";
@@ -101,28 +101,10 @@ export default async function DataSettingsPage() {
           </span>
         </div>
         <p className="mt-2 text-[10.5px] leading-relaxed text-faint">
-          当前后端：{STORAGE_KIND_LABEL[config.driver]}。
-          {config.driver === "LOCAL"
-            ? "照片和视频保存在服务器的 storage/ 目录。备份时请同时备份这个目录和数据库文件。"
-            : "照片和视频保存在阿里云 OSS。备份时只需要备份数据库，对象数据请使用 OSS 的版本控制或跨区域复制。"}
-          {" "}
+          当前后端：{STORAGE_KIND_LABEL[config.driver]}。{" "}
           <Link href="/settings/storage" className="underline underline-offset-2 hover:text-ink">
             修改存储设置
           </Link>
-        </p>
-      </section>
-
-      <section className="card p-4 sm:p-5">
-        <h2 className="flex items-center gap-2 text-[13px] font-semibold">
-          <Database size={15} className="text-muted" /> 备份
-        </h2>
-        <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
-          在服务器上运行 <code className="rounded bg-raised px-1 py-0.5 text-[10.5px]">npm run backup</code>，
-          会把 SQLite 数据库和本地 storage 目录复制到带时间戳的备份文件夹。使用 OSS 时，媒体文件不在本地，
-          备份只包含数据库。
-        </p>
-        <p className="mt-2 text-[10.5px] leading-relaxed text-faint">
-          恢复时停止应用，把备份中的数据库（以及本地存储时的 storage）覆盖回原位，再启动即可。
         </p>
       </section>
 

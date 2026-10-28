@@ -10,6 +10,7 @@ import { deleteEntryAction, setEntryStatusAction } from "@/app/actions/entries";
 import { Avatar } from "@/components/Avatar";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { SubmitButton } from "@/components/SubmitButton";
+import { VideoPlayer } from "@/components/media/VideoPlayer";
 
 export default async function EntryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -143,35 +144,33 @@ export default async function EntryDetailPage({ params }: { params: Promise<{ id
           {media.map((item) => (
             <div key={item.id} className="relative overflow-hidden rounded-[22px] bg-raised">
               {item.mediaType === "VIDEO" ? (
-                <>
-                  <video
-                    controls
-                    playsInline
-                    preload="metadata"
-                    poster={item.thumbnailKey ? `/api/media/${item.id}/thumb` : undefined}
-                    className="max-h-[64vh] w-full bg-black object-contain"
-                    src={
-                      item.playbackStatus === "READY" && item.playbackKey
-                        ? `/api/media/${item.id}/playback`
-                        : `/api/media/${item.id}/file`
-                    }
-                  />
-                  {item.playbackStatus === "READY" && item.playbackKey ? (
-                    <a
-                      href={`/api/media/${item.id}/file`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="absolute right-2.5 top-2.5 rounded-full bg-black/45 px-3 py-1.5 text-[10px] text-white backdrop-blur transition hover:bg-black/65"
-                    >
-                      原视频
-                    </a>
-                  ) : null}
-                </>
+                <VideoPlayer
+                  src={
+                    item.playbackStatus === "READY" && item.playbackKey
+                      ? `/api/media/${item.id}/playback?v=${item.playbackSize ?? 0}`
+                      : `/api/media/${item.id}/file?v=${item.fileSize}`
+                  }
+                  originalSrc={
+                    item.playbackStatus === "READY" && item.playbackKey
+                      ? `/api/media/${item.id}/file?v=${item.fileSize}`
+                      : null
+                  }
+                  poster={
+                    item.thumbnailKey
+                      ? `/api/media/${item.id}/thumb?v=${encodeURIComponent(item.thumbnailKey)}`
+                      : null
+                  }
+                  videoClassName="max-h-[64vh] w-full bg-black object-contain"
+                />
               ) : (
                 <Link href={`/photos/${item.id}`} className="block">
                   <img
-                    src={`/api/media/${item.id}/display`}
+                    src={`/api/media/${item.id}/display?v=${item.displaySize ?? item.fileSize}`}
                     alt={item.caption || entry.title || "记录照片"}
+                    width={item.displayWidth ?? item.width ?? undefined}
+                    height={item.displayHeight ?? item.height ?? undefined}
+                    loading="lazy"
+                    decoding="async"
                     className="max-h-[72vh] w-full object-contain"
                   />
                 </Link>
