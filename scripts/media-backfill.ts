@@ -4,6 +4,7 @@ import { prisma } from "../lib/db";
 import {
   DISPLAY_MAX,
   THUMB_MAX,
+  THUMB_VERSION,
   generateMissingImageVariants,
 } from "../lib/media-variants";
 
@@ -13,8 +14,9 @@ import {
  *   npm run media:backfill -- --type=image --retry-failed
  *   npm run media:backfill -- --type=video
  *
- * 图片会直接补 240px 缩略图和 960px 预览图；视频只重新排队，
- * 由常驻 worker 生成封面和播放版，避免命令行长时间占用 CPU。
+ * 图片会按当前规格（480px 缩略图 / 960px 预览图）补齐，旧规格的缩略图
+ * 也会重做；视频只重新排队，由常驻 worker 生成封面和播放版，
+ * 避免命令行长时间占用 CPU。
  */
 
 function argument(name: string): string | null {
@@ -63,6 +65,11 @@ async function backfillImages() {
           { displayStatus: "PENDING" },
           { thumbnailStatus: "READY", thumbnailKey: { not: null }, thumbnailWidth: null },
           { displayStatus: "READY", displayKey: { not: null }, displayWidth: null },
+          {
+            thumbnailStatus: "READY",
+            thumbnailKey: { not: null },
+            thumbnailVersion: { lt: THUMB_VERSION },
+          },
         ],
       },
       orderBy: { createdAt: "asc" },

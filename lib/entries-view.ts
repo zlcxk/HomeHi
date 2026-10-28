@@ -20,6 +20,8 @@ export type EntryCardMedia = {
   height: number | null;
   durationSeconds: number | null;
   thumbUrl: string | null;
+  /** 大图卡片（单张照片）用 960px 预览图，避免列表里被放大发虚。 */
+  displayUrl: string | null;
   url: string;
 };
 
@@ -75,6 +77,11 @@ export function toEntryCard(
               ? `/api/media/${media.id}/thumb?v=${encodeURIComponent(media.thumbnailKey)}`
               : null
             : `/api/media/${media.id}/thumb?v=${encodeURIComponent(media.thumbnailKey || "0")}`,
+        // 动图没有 960 预览图，退回缩略图，避免列表直接加载大体积原文件。
+        displayUrl:
+          media.mediaType === "IMAGE" && media.displayStatus === "READY" && media.displayKey
+            ? `/api/media/${media.id}/display?v=${encodeURIComponent(media.displayKey)}`
+            : null,
         url: `/api/media/${media.id}/file?v=${media.fileSize}`,
       })),
     profiles: entry.profiles.map((link) => ({

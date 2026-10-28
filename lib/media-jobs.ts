@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/db";
-import { generateMissingImageVariants } from "@/lib/media-variants";
+import { generateMissingImageVariants, THUMB_VERSION } from "@/lib/media-variants";
 
 const STALE_PROCESSING_MS = 15 * 60_000;
 
 let draining = false;
 
 /**
- * 取一条需要缩略图或预览图的照片。旧数据（有 key 但没有尺寸）也会被重新生成，
- * 这样历史照片不用用户重新上传就能升级到新的 240px / 960px 规格。
+ * 取一条需要缩略图或预览图的照片。旧数据（有 key 但没有尺寸）和旧规格
+ * 缩略图也会被重新生成，这样历史照片不用重新上传就能升级到当前规格。
  */
 async function claimNextImage() {
   const candidate = await prisma.media.findFirst({
@@ -19,6 +19,11 @@ async function claimNextImage() {
         { displayStatus: "PENDING" },
         { thumbnailStatus: "READY", thumbnailKey: { not: null }, thumbnailWidth: null },
         { displayStatus: "READY", displayKey: { not: null }, displayWidth: null },
+        {
+          thumbnailStatus: "READY",
+          thumbnailKey: { not: null },
+          thumbnailVersion: { lt: THUMB_VERSION },
+        },
       ],
     },
     orderBy: { createdAt: "asc" },
@@ -31,7 +36,7 @@ async function claimNextImage() {
     candidate.thumbnailStatus === "PENDING" ||
     (candidate.thumbnailStatus === "READY" &&
       candidate.thumbnailKey !== null &&
-      candidate.thumbnailWidth === null);
+      (candidate.thumbnailWidth === null || candidate.thumbnailVersion < THUMB_VERSION));
   const needsDisplay =
     candidate.displayStatus === "PENDING" ||
     (candidate.displayStatus === "READY" &&

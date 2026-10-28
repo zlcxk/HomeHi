@@ -170,8 +170,8 @@ export default async function PhotosPage({
                         alt={item.caption || ""}
                         loading="lazy"
                         decoding="async"
-                        width={240}
-                        height={240}
+                        width={480}
+                        height={480}
                         className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
                       />
                     ) : (

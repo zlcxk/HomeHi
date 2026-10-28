@@ -27,6 +27,11 @@ export function EntryCard({
           <div className={`grid gap-0.5 ${entry.media.length === 1 ? "" : "grid-cols-2"}`}>
             {entry.media.slice(0, 4).map((media, index) => {
               const isWide = entry.media.length === 3 && index === 0;
+              // 整行大图用 960px 预览图；方格缩略图继续用轻量的 480px。
+              const imageUrl =
+                (entry.media.length === 1 || isWide) && media.displayUrl
+                  ? media.displayUrl
+                  : media.thumbUrl;
               return (
                 <div
                   key={media.id}
@@ -40,9 +45,9 @@ export function EntryCard({
                         : "aspect-square"
                   }`}
                 >
-                  {media.thumbUrl ? (
+                  {imageUrl ? (
                     <img
-                      src={media.thumbUrl}
+                      src={imageUrl}
                       alt=""
                       loading="lazy"
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.015]"

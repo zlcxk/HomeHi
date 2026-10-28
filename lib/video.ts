@@ -7,7 +7,7 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { prisma } from "@/lib/db";
 import { getStorageDriver, makePlaybackKey } from "@/lib/storage";
-import { storeThumbnail, VIDEO_COVER_MAX } from "@/lib/media-variants";
+import { storeThumbnail, THUMB_VERSION, VIDEO_COVER_MAX } from "@/lib/media-variants";
 
 const MAX_EDGE = 1280;
 const MAX_TRANSCODE_MS = 30 * 60_000;
@@ -108,15 +108,33 @@ function outputExtension(mimeType: string): string {
 }
 
 async function claimNextVideo() {
-  const candidate = await prisma.media.findFirst({
-    where: {
-      mediaType: "VIDEO",
-      status: "ACTIVE",
-      OR: [{ playbackStatus: "PENDING" }, { thumbnailStatus: "PENDING" }],
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  // 新上传的视频优先；旧封面升级排在队尾，避免刚上传的视频等太久。
+  const candidate =
+    (await prisma.media.findFirst({
+      where: {
+        mediaType: "VIDEO",
+        status: "ACTIVE",
+        OR: [{ playbackStatus: "PENDING" }, { thumbnailStatus: "PENDING" }],
+      },
+      orderBy: { createdAt: "asc" },
+    })) ??
+    (await prisma.media.findFirst({
+      where: {
+        mediaType: "VIDEO",
+        status: "ACTIVE",
+        // 旧的 480px 封面：按新规格重做一次，版本号写回后不会再领到。
+        thumbnailStatus: "READY",
+        thumbnailKey: { not: null },
+        thumbnailVersion: { lt: THUMB_VERSION },
+      },
+      orderBy: { createdAt: "asc" },
+    }));
   if (!candidate) return null;
+
+  const needsCoverUpgrade =
+    candidate.thumbnailStatus === "READY" &&
+    candidate.thumbnailKey !== null &&
+    candidate.thumbnailVersion < THUMB_VERSION;
 
   const data: {
     playbackStatus?: string;
@@ -128,7 +146,7 @@ async function claimNextVideo() {
     data.playbackStatus = "PROCESSING";
     data.playbackError = null;
   }
-  if (candidate.thumbnailStatus === "PENDING") {
+  if (candidate.thumbnailStatus === "PENDING" || needsCoverUpgrade) {
     data.thumbnailStatus = "PROCESSING";
     data.thumbnailError = null;
   }
@@ -202,6 +220,7 @@ async function generateCover(
         thumbnailWidth: thumb.width,
         thumbnailHeight: thumb.height,
         thumbnailStatus: "READY",
+        thumbnailVersion: THUMB_VERSION,
         thumbnailError: null,
       },
     });

@@ -11,6 +11,7 @@ import {
 } from "@/lib/constants";
 import { getStorageDriver, makeStorageKey } from "@/lib/storage";
 import {
+  THUMB_VERSION,
   VIDEO_COVER_MAX,
   ensureThumbnail,
   storeThumbnail,
@@ -219,6 +220,7 @@ export async function processMediaUpload(
       thumbnailWidth,
       thumbnailHeight,
       thumbnailStatus,
+      thumbnailVersion: thumbnailKey ? THUMB_VERSION : 0,
       displayStatus,
       displayError,
       playbackStatus,

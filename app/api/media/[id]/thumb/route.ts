@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * 列表缩略图，长边约 240px。旧照片第一次被访问时按需升级；
+ * 列表缩略图，长边约 480px。旧规格照片第一次被访问时按需升级；
  * 生成失败也有兜底：照片回退到 960px 展示图，视频只返回占位。
  */
 export async function GET(

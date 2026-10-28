@@ -299,6 +299,8 @@ model Media {
   thumbnailHeight  Int?
   thumbnailStatus  String    @default("PENDING") // PENDING | PROCESSING | READY | SKIPPED | FAILED
   thumbnailError   String?
+  // 缩略图规格版本；升级尺寸/画质后自增，旧图会在访问或 worker 巡检时重做。
+  thumbnailVersion Int       @default(0)
   // 中等尺寸 WebP：详情页默认加载它，原图仍保留在 storageKey 里。
   displayKey       String?
   displaySize      Int?

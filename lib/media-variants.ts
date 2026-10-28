@@ -7,14 +7,23 @@ import {
   type StorageDriver,
 } from "@/lib/storage";
 
-/** 列表缩略图长边；已有 900px 旧图会在首次读取时自动降级重做。 */
-export const THUMB_MAX = 240;
+/**
+ * 列表缩略图长边。列表在 2x 屏上是 3~4 列，240px 会被放大变糊；
+ * 480px 在 2 倍屏上仍有富余，同时单张 WebP 通常不到 60KB。
+ */
+export const THUMB_MAX = 480;
 /** 详情页预览图长边；原图仍保留在 storageKey。 */
 export const DISPLAY_MAX = 960;
-/** 视频封面比列表缩略图稍大，详情页海报不会太糊。 */
-export const VIDEO_COVER_MAX = 480;
+/** 视频封面：列表和详情页海报共用，尺寸太小时视频卡片会发虚。 */
+export const VIDEO_COVER_MAX = 720;
 
-const THUMB_QUALITY = 72;
+/**
+ * 缩略图规格版本。尺寸或画质调整后自增，旧图会在下一次读取
+ * （或 worker 巡检）时按新规格重做，不必让用户重新上传。
+ */
+export const THUMB_VERSION = 2;
+
+const THUMB_QUALITY = 80;
 const DISPLAY_QUALITY = 80;
 const RETRY_AFTER_MS = 10 * 60_000;
 const MAX_VARIANT_SOURCE_BYTES = 200 * 1024 * 1024;
@@ -36,6 +45,7 @@ export type VariantMedia = {
   thumbnailWidth: number | null;
   thumbnailHeight: number | null;
   thumbnailStatus: string;
+  thumbnailVersion: number;
   displayKey: string | null;
   displayWidth: number | null;
   displayHeight: number | null;
@@ -99,13 +109,12 @@ function maxEdgeOf(width: number | null, height: number | null): number | null {
   return Math.max(width || 0, height || 0);
 }
 
-/** 旧尺寸或缺失维度都返回 true，让第一次读取顺手升级到当前规格。 */
+/** 旧规格或缺失缩略图都返回 true，让第一次读取顺手升级到当前规格。 */
 function needsThumbnail(media: VariantMedia): boolean {
   if (media.mediaType !== "IMAGE") return false;
   if (!media.thumbnailKey) return media.thumbnailStatus !== "SKIPPED";
-  const edge = maxEdgeOf(media.thumbnailWidth, media.thumbnailHeight);
-  if (edge === null) return true;
-  return edge > Math.round(THUMB_MAX * 1.2);
+  if ((media.thumbnailVersion ?? 0) < THUMB_VERSION) return true;
+  return maxEdgeOf(media.thumbnailWidth, media.thumbnailHeight) === null;
 }
 
 function needsDisplay(media: VariantMedia): boolean {
@@ -155,6 +164,7 @@ async function writeThumbnail(
       thumbnailWidth: variant.width,
       thumbnailHeight: variant.height,
       thumbnailStatus: "READY",
+      thumbnailVersion: THUMB_VERSION,
       thumbnailError: null,
     },
   });
