@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Camera,
   ChevronRight,
+  Compass,
   Images,
   ListTodo,
   MessagesSquare,
@@ -36,6 +37,7 @@ const sideItems = [
   { href: "/timeline", label: "时光", icon: BookOpen },
   { href: "/photos", label: "照片", icon: Images },
   { href: "/calendar", label: "日历", icon: CalendarDays },
+  { href: "/travel", label: "旅行", icon: Compass },
   { href: "/tasks", label: "待办", icon: ListTodo },
   { href: "/topics", label: "家庭议题", icon: MessagesSquare },
   { href: "/profiles", label: "家人与宠物", icon: Users },
@@ -193,34 +195,6 @@ export function AppNavigation({
                   tone="bg-sage-soft text-sage"
                   title="一篇手记"
                 />
-                <ComposerLink
-                  href="/compose/event"
-                  onClick={() => setOpen(false)}
-                  icon={<CalendarDays size={20} strokeWidth={1.8} />}
-                  tone="bg-[color-mix(in_srgb,var(--gold)_16%,transparent)] text-gold"
-                  title="一件日程"
-                />
-                <ComposerLink
-                  href="/compose/task"
-                  onClick={() => setOpen(false)}
-                  icon={<ListTodo size={20} strokeWidth={1.8} />}
-                  tone="bg-raised text-ink"
-                  title="一件待办"
-                />
-                <ComposerLink
-                  href="/compose/topic"
-                  onClick={() => setOpen(false)}
-                  icon={<MessagesSquare size={20} strokeWidth={1.8} />}
-                  tone="bg-sage-soft text-sage"
-                  title="一个议题"
-                />
-                <ComposerLink
-                  href="/assets/new"
-                  onClick={() => setOpen(false)}
-                  icon={<Boxes size={20} strokeWidth={1.8} />}
-                  tone="bg-raised text-muted"
-                  title="一件物品"
-                />
               </div>
 
               <div className="mt-4 grid grid-cols-6 gap-1 border-t border-line pt-3">
@@ -228,9 +202,9 @@ export function AppNavigation({
                   { href: "/calendar", label: "日历", icon: CalendarDays },
                   { href: "/tasks", label: "待办", icon: ListTodo },
                   { href: "/topics", label: "议题", icon: MessagesSquare },
-                  { href: "/profiles", label: "家人", icon: Users },
+                  { href: "/profiles", label: "成员", icon: Users },
                   { href: "/assets", label: "物品", icon: Boxes },
-                  { href: "/timeline", label: "时光", icon: BookOpen },
+                  { href: "/travel", label: "旅行", icon: Compass },
                 ].map((item) => {
                   const Icon = item.icon;
                   return (

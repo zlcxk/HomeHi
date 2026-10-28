@@ -60,6 +60,13 @@ export function assetWhere(viewer: Viewer): Prisma.AssetWhereInput {
   };
 }
 
+export function tripWhere(viewer: Viewer): Prisma.TripWhereInput {
+  return {
+    householdId: viewer.householdId,
+    OR: [{ visibility: "HOUSEHOLD" }, { createdBy: viewer.userId }],
+  };
+}
+
 export function canViewEntry(
   entry: { householdId: string; createdBy: string; visibility: string; status?: string },
   viewer: Viewer,

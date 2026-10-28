@@ -96,6 +96,20 @@ export function formatRange(
   return `${s.toFormat("M月d日 HH:mm")} – ${e.toFormat("M月d日 HH:mm")}`;
 }
 
+/** 只显示日期的区间，用于旅行这类以天为单位的内容。 */
+export function formatDayRange(
+  start: Date | string,
+  end: Date | string | null | undefined,
+  timezone: string,
+): string {
+  const s = asDateTime(start, timezone).setLocale("zh-CN");
+  if (!end) return s.toFormat("yyyy年M月d日");
+  const e = asDateTime(end, timezone).setLocale("zh-CN");
+  if (s.hasSame(e, "day")) return s.toFormat("yyyy年M月d日");
+  if (s.year === e.year) return `${s.toFormat("yyyy年M月d日")} – ${e.toFormat("M月d日")}`;
+  return `${s.toFormat("yyyy年M月d日")} – ${e.toFormat("yyyy年M月d日")}`;
+}
+
 export function monthLabel(year: number, month: number): string {
   return `${year}年${month}月`;
 }

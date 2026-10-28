@@ -145,6 +145,36 @@ export const assetSchema = z.object({
   visibility: z.enum(["HOUSEHOLD", "PRIVATE"]),
 });
 
+export const tripSchema = z.object({
+  kind: z.enum(["SINGLE", "THEME"]),
+  title: z.string().trim().min(1, "请填写旅行名称").max(80, "名称过长"),
+  subtitle: z.string().max(120, "副标题过长").optional().default(""),
+  description: z.string().max(4000, "介绍过长").optional().default(""),
+  startDate: z.string().optional().default(""),
+  endDate: z.string().optional().default(""),
+  status: z.enum(["PLANNING", "ONGOING", "DONE"]),
+  coverMediaId: z.string().optional().default(""),
+  visibility: z.enum(["HOUSEHOLD", "PRIVATE"]),
+});
+
+export const tripPlaceSchema = z.object({
+  name: z.string().trim().min(1, "请填写地点名称").max(80, "地点名称过长"),
+  region: z.string().max(80, "城市/地区过长").optional().default(""),
+  address: z.string().max(200, "地址过长").optional().default(""),
+  note: z.string().max(2000, "备注过长").optional().default(""),
+});
+
+export const tripVisitSchema = z.object({
+  visitedAt: z.string().min(1, "请选择到访日期"),
+  note: z.string().max(2000, "记录过长").optional().default(""),
+  mediaIds: z.array(z.string()).max(30),
+});
+
+export const tripLinkSchema = z.object({
+  title: z.string().trim().min(1, "请填写链接名称").max(80, "名称过长"),
+  url: z.string().trim().min(1, "请填写链接地址").max(500, "链接过长"),
+});
+
 export const topicSchema = z.object({
   title: z.string().trim().min(2, "议题至少写 2 个字").max(80, "议题标题过长"),
   description: z.string().max(2000, "说明过长").optional().default(""),

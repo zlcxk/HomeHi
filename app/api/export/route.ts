@@ -51,6 +51,7 @@ export async function GET() {
     notifications,
     settings,
     topics,
+    trips,
   ] = await Promise.all([
     prisma.household.findUnique({ where: { id: householdId } }),
     prisma.householdMember.findMany({
@@ -91,6 +92,22 @@ export async function GET() {
         attachments: { orderBy: { createdAt: "asc" } },
         dates: { orderBy: { date: "asc" } },
         tasks: { orderBy: { createdAt: "asc" } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.trip.findMany({
+      where: { householdId },
+      include: {
+        places: {
+          include: {
+            visits: {
+              include: { photos: { select: { mediaId: true, sortOrder: true } } },
+              orderBy: { visitedAt: "asc" },
+            },
+          },
+          orderBy: { sortOrder: "asc" },
+        },
+        links: { orderBy: { sortOrder: "asc" } },
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -158,6 +175,7 @@ export async function GET() {
         file: topicAttachmentPath(topic.id, item),
       })),
     })),
+    trips,
   };
 
   const archive = new ZipArchive({ zlib: { level: 6 } });
