@@ -581,6 +581,8 @@ model Trip {
   subtitle     String?
   description  String?
   coverMediaId String?
+  /// 内置主题模板自带的静态封面，用户上传封面时以 coverMediaId 为准
+  coverImage   String?
   startDate    DateTime?
   endDate      DateTime?
   status       String    @default("PLANNING") // PLANNING | ONGOING | DONE

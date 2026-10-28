@@ -102,6 +102,7 @@ export async function saveTripAction(
         ...payload,
         householdId: context.household.id,
         createdBy: context.user.id,
+        coverImage: template?.cover ?? null,
         ...(template
           ? {
               places: {

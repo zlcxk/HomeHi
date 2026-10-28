@@ -79,6 +79,13 @@ export default async function TravelPage() {
                       loading="lazy"
                       className="aspect-[16/8] w-full object-cover"
                     />
+                  ) : trip.coverImage ? (
+                    <img
+                      src={trip.coverImage}
+                      alt=""
+                      loading="lazy"
+                      className="aspect-[16/8] w-full object-cover"
+                    />
                   ) : (
                     <div className="flex aspect-[16/8] items-center justify-center bg-raised text-faint">
                       <Repeat size={26} strokeWidth={1.4} />
@@ -135,9 +142,13 @@ export default async function TravelPage() {
                   prefetch
                   className="flex items-center gap-3 px-3.5 py-3 transition hover:bg-raised/60"
                 >
-                  {trip.coverMediaId ? (
+                  {trip.coverMediaId || trip.coverImage ? (
                     <img
-                      src={`/api/media/${trip.coverMediaId}/thumb`}
+                      src={
+                        trip.coverMediaId
+                          ? `/api/media/${trip.coverMediaId}/thumb`
+                          : (trip.coverImage ?? "")
+                      }
                       alt=""
                       loading="lazy"
                       className="h-12 w-12 shrink-0 rounded-xl object-cover"

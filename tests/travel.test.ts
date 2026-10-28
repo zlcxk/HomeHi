@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { linkLabel, normalizeTripLink, parseCoordinates, tripLinkKind } from "@/lib/travel";
 import { TRAVEL_TEMPLATES } from "@/lib/travel-templates";
@@ -72,6 +74,14 @@ describe("travel templates", () => {
     for (const template of TRAVEL_TEMPLATES) {
       expect(template.title.length).toBeGreaterThan(0);
       expect(template.places.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("ships a cover image for every template", () => {
+    for (const template of TRAVEL_TEMPLATES) {
+      expect(template.cover.startsWith("/travel/covers/"), template.id).toBe(true);
+      const file = path.join(process.cwd(), "public", template.cover);
+      expect(fs.existsSync(file), template.cover).toBe(true);
     }
   });
 

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" role="img" aria-label="湖泊">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf1e1"/>
+      <stop offset="1" stop-color="#f4dfc6"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a9bfb5"/>
+      <stop offset="1" stop-color="#5f827a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="330" fill="url(#sky)"/>
+  <circle cx="842" cy="238" r="88" fill="#e75d31" opacity="0.10"/>
+  <circle cx="842" cy="238" r="56" fill="#e75d31" opacity="0.9"/>
+
+  <path d="M 0 320 L 170 226 L 306 300 L 470 200 L 620 306 L 760 244 L 910 322 L 1040 260 L 1200 330 L 1200 360 L 0 360 Z" fill="#93a794"/>
+  <path d="M 0 344 L 140 292 L 268 334 L 420 276 L 566 340 L 712 300 L 872 348 L 1016 302 L 1200 352 L 1200 380 L 0 380 Z" fill="#6f8778"/>
+
+  <rect y="352" width="1200" height="288" fill="url(#water)"/>
+  <path d="M 0 352 L 140 300 L 268 342 L 420 284 L 566 348 L 712 308 L 872 356 L 1016 310 L 1200 360 L 1200 452 L 0 452 Z" fill="#c3ccc0" opacity="0.28"/>
+
+  <ellipse cx="842" cy="392" rx="62" ry="14" fill="#f2c9a8" opacity="0.55"/>
+  <g fill="#f7f1e7" opacity="0.55">
+    <rect x="690" y="392" width="120" height="4" rx="2"/>
+    <rect x="744" y="414" width="160" height="4" rx="2"/>
+    <rect x="640" y="440" width="96" height="4" rx="2"/>
+    <rect x="820" y="466" width="180" height="4" rx="2"/>
+    <rect x="560" y="496" width="140" height="4" rx="2"/>
+    <rect x="760" y="528" width="220" height="4" rx="2"/>
+  </g>
+
+  <g>
+    <path d="M 236 484 L 384 484 L 360 502 L 260 502 Z" fill="#2f3d33"/>
+    <rect x="304" y="440" width="5" height="46" fill="#2f3d33"/>
+    <path d="M 309 442 L 344 478 L 309 478 Z" fill="#f7f1e7" opacity="0.85"/>
+  </g>
+
+  <path d="M 0 600 Q 160 556 330 588 T 660 590 T 1000 584 T 1200 596 L 1200 640 L 0 640 Z" fill="#4f6b57"/>
+  <g stroke="#3c5444" stroke-width="4" stroke-linecap="round">
+    <path d="M 120 604 L 112 552"/>
+    <path d="M 148 600 L 156 546"/>
+    <path d="M 176 606 L 180 560"/>
+    <path d="M 1040 600 L 1032 548"/>
+    <path d="M 1068 596 L 1076 542"/>
+    <path d="M 1096 602 L 1100 556"/>
+  </g>
+</svg>

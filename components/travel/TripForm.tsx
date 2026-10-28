@@ -129,6 +129,11 @@ export function TripForm({
             </div>
             {template ? (
               <div className="mt-2.5 flex items-start justify-between gap-3">
+                <img
+                  src={template.cover}
+                  alt=""
+                  className="h-9 w-16 shrink-0 rounded-lg object-cover"
+                />
                 <p className="text-[10.5px] leading-relaxed text-faint">
                   将预置 {template.places.length} 个地点：
                   {template.places

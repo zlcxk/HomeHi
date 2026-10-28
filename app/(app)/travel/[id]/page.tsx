@@ -127,6 +127,8 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
             alt=""
             className="aspect-[16/7] w-full object-cover"
           />
+        ) : trip.coverImage ? (
+          <img src={trip.coverImage} alt="" className="aspect-[16/7] w-full object-cover" />
         ) : (
           <div className="flex aspect-[16/5] items-center justify-center bg-raised text-faint">
             {isTheme ? <Repeat size={30} strokeWidth={1.4} /> : <Compass size={30} strokeWidth={1.4} />}

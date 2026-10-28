@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" role="img" aria-label="石窟">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf1e1"/>
+      <stop offset="1" stop-color="#f0dbc0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="640" fill="url(#sky)"/>
+  <circle cx="196" cy="180" r="104" fill="#e75d31" opacity="0.10"/>
+  <circle cx="196" cy="180" r="70" fill="#e75d31" opacity="0.85"/>
+
+  <path d="M 240 640 L 240 320 Q 280 190 520 162 Q 780 132 1000 214 Q 1150 268 1180 384 L 1180 640 Z" fill="#c9b295"/>
+  <path d="M 760 640 L 790 250 Q 960 200 1080 280 Q 1160 336 1172 430 L 1172 640 Z" fill="#b39b7e" opacity="0.75"/>
+
+  <g stroke="#a98f70" stroke-width="3" opacity="0.5" fill="none">
+    <path d="M 280 360 Q 520 320 760 348 T 1160 370"/>
+    <path d="M 268 424 Q 520 388 780 414 T 1168 430"/>
+  </g>
+
+  <path d="M 470 512 L 470 306 Q 600 206 730 306 L 730 512 Z" fill="#352b21"/>
+  <g>
+    <circle cx="600" cy="352" r="66" fill="#e75d31" opacity="0.22"/>
+    <circle cx="600" cy="336" r="24" fill="#e8d3b8"/>
+    <path d="M 600 362 C 570 374 554 404 550 492 L 650 492 C 646 404 630 374 600 362 Z" fill="#e8d3b8"/>
+    <rect x="520" y="492" width="160" height="20" fill="#4a3d2e"/>
+  </g>
+
+  <path d="M 316 512 L 316 366 Q 372 318 428 366 L 428 512 Z" fill="#3b3025"/>
+  <path d="M 774 512 L 774 388 Q 826 344 878 388 L 878 512 Z" fill="#3b3025"/>
+  <g fill="#d9c4a6">
+    <circle cx="372" cy="404" r="15"/>
+    <path d="M 372 422 C 356 430 350 446 348 494 L 396 494 C 394 446 388 430 372 422 Z"/>
+    <circle cx="826" cy="424" r="13"/>
+    <path d="M 826 440 C 812 447 807 461 805 500 L 847 500 C 845 461 840 447 826 440 Z"/>
+  </g>
+
+  <rect x="420" y="512" width="360" height="16" rx="4" fill="#b39b7e"/>
+  <rect x="398" y="528" width="404" height="16" rx="4" fill="#a78e6f"/>
+  <rect x="376" y="544" width="448" height="16" rx="4" fill="#9a8163"/>
+  <rect x="354" y="560" width="492" height="18" rx="4" fill="#8d7558"/>
+  <rect x="0" y="578" width="1200" height="62" fill="#d9c4a6"/>
+
+  <g fill="#4f6b57">
+    <circle cx="150" cy="574" r="42"/>
+    <circle cx="204" cy="592" r="32"/>
+    <circle cx="1042" cy="580" r="38"/>
+    <circle cx="990" cy="596" r="30"/>
+  </g>
+</svg>

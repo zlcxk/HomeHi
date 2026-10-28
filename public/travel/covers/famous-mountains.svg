@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" role="img" aria-label="名山">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf1e1"/>
+      <stop offset="1" stop-color="#f2ddc3"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="640" fill="url(#sky)"/>
+  <circle cx="946" cy="152" r="112" fill="#e75d31" opacity="0.10"/>
+  <circle cx="946" cy="152" r="76" fill="#e75d31" opacity="0.88"/>
+
+  <g fill="#dfe3d7" opacity="0.75">
+    <ellipse cx="300" cy="196" rx="150" ry="26"/>
+    <ellipse cx="430" cy="212" rx="96" ry="18"/>
+    <ellipse cx="860" cy="286" rx="128" ry="20"/>
+  </g>
+
+  <path d="M 0 430 L 150 338 L 268 402 L 420 250 L 560 386 L 700 300 L 830 410 L 980 330 L 1120 420 L 1200 386 L 1200 640 L 0 640 Z" fill="#c3ccc0" opacity="0.85"/>
+  <path d="M 0 486 L 120 400 L 232 456 L 380 300 L 520 420 L 640 344 L 790 470 L 900 372 L 1040 462 L 1200 396 L 1200 640 L 0 640 Z" fill="#8fa28d"/>
+  <path d="M 0 540 L 110 462 L 214 510 L 330 352 L 452 470 L 566 404 L 690 520 L 800 428 L 930 512 L 1050 440 L 1200 512 L 1200 640 L 0 640 Z" fill="#4f6b57"/>
+
+  <g fill="#f7f1e7">
+    <polygon points="304,384 330,352 356,384"/>
+    <polygon points="540,432 566,404 592,432"/>
+    <polygon points="774,454 800,428 826,454"/>
+    <polygon points="1024,466 1050,440 1076,466"/>
+  </g>
+
+  <g stroke="#2f3d33" stroke-width="4" fill="none" opacity="0.7" stroke-linecap="round">
+    <path d="M 700 160 q 12 -10 24 0 q 12 -10 24 0"/>
+    <path d="M 772 132 q 10 -8 20 0 q 10 -8 20 0"/>
+  </g>
+
+  <rect x="0" y="600" width="1200" height="40" fill="#3c5444"/>
+</svg>

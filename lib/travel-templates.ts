@@ -10,6 +10,8 @@ export type TravelTemplatePlace = {
 
 export type TravelTemplate = {
   id: string;
+  /** 默认封面，放在 public/travel/covers 下 */
+  cover: string;
   title: string;
   subtitle: string;
   description: string;
@@ -19,6 +21,7 @@ export type TravelTemplate = {
 export const TRAVEL_TEMPLATES: TravelTemplate[] = [
   {
     id: "museums",
+    cover: "/travel/covers/museums.svg",
     title: "全国博物馆打卡",
     subtitle: "把想去的馆，一个一个走完",
     description: "从国家级大馆到地方特色馆，去一个打一个卡，慢慢收集属于你家的博物馆地图。",
@@ -43,6 +46,7 @@ export const TRAVEL_TEMPLATES: TravelTemplate[] = [
   },
   {
     id: "shanxi-ancient-architecture",
+    cover: "/travel/covers/shanxi-ancient-architecture.svg",
     title: "山西省古建筑",
     subtitle: "中国古建筑的露天博物馆",
     description: "唐代木构、辽金巨刹、明清古城，山西的古建筑密度全国少见，适合按地区一块一块走。",
@@ -64,6 +68,7 @@ export const TRAVEL_TEMPLATES: TravelTemplate[] = [
   },
   {
     id: "four-grottoes",
+    cover: "/travel/covers/four-grottoes.svg",
     title: "中国四大石窟探索",
     subtitle: "莫高窟 · 云冈 · 龙门 · 麦积山",
     description: "四大石窟横跨甘肃、山西、河南，每一处都值得专门安排一趟行程。",
@@ -76,6 +81,7 @@ export const TRAVEL_TEMPLATES: TravelTemplate[] = [
   },
   {
     id: "famous-mountains",
+    cover: "/travel/covers/famous-mountains.svg",
     title: "中国名山打卡",
     subtitle: "五岳和它们之外的山",
     description: "从五岳到雪山，体力好的先爬，体力一般的坐索道，重要的是都去过。",
@@ -98,6 +104,7 @@ export const TRAVEL_TEMPLATES: TravelTemplate[] = [
   },
   {
     id: "lakes",
+    cover: "/travel/covers/lakes.svg",
     title: "中国湖泊打卡",
     subtitle: "高原的、江南的、北方的湖",
     description: "有的湖要坐很久的车才到，有的湖就在城市边上，去过一个就删一个，进度会自己涨。",
@@ -120,6 +127,7 @@ export const TRAVEL_TEMPLATES: TravelTemplate[] = [
   },
   {
     id: "landmarks",
+    cover: "/travel/covers/landmarks.svg",
     title: "地标打卡",
     subtitle: "每座城市至少留下一个印记",
     description: "从城墙到塔尖，去过的城市在地标上打个卡，攒起来的是一次次出门的理由。",

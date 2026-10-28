@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PenLine, Plus, X } from "lucide-react";
+import { Compass, PenLine, Plus, X } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { requireContext } from "@/lib/auth";
 import { publishedEntryWhere } from "@/lib/access";
@@ -96,6 +96,9 @@ export default async function TimelinePage({
               {ENTRY_TYPE_LABEL[item]}
             </Link>
           ))}
+          <Link href="/travel" prefetch className="chip gap-1.5">
+            <Compass size={12} strokeWidth={1.9} /> 旅行
+          </Link>
           {tags.length > 0 ? <span className="mx-1 h-4 w-px bg-line-strong" /> : null}
           {tags.map((item) => (
             <Link
