@@ -11,6 +11,9 @@ storage/*
 backups/*
 !backups/.gitkeep
 tests
+docs
 coverage
 *.log
+*.tsbuildinfo
 .DS_Store
+.tmp

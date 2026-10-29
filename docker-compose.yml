@@ -3,7 +3,9 @@
 # 不需要在这里重复声明（这里只覆盖容器内必须不同的路径类变量）。
 services:
   web:
-    build: .
+    build:
+      context: .
+      target: web
     restart: unless-stopped
     env_file: .env
     environment:
@@ -23,7 +25,9 @@ services:
       start_period: 30s
 
   worker:
-    build: .
+    build:
+      context: .
+      target: worker
     restart: unless-stopped
     command: ["npm", "run", "worker:prod"]
     env_file: .env

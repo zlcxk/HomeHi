@@ -198,6 +198,7 @@ docker compose pull && docker compose up -d --build   # 更新
 ```
 
 - 数据卷：`./data`（SQLite）、`./storage`（本地媒体）。升级前备份这两个目录。
+- 镜像：同一份 `Dockerfile` 产出 `web` 与 `worker` 两个构建目标。web 使用 Next.js standalone 输出，不携带构建依赖和 ffmpeg，只额外加入迁移用的 Prisma CLI；worker 只安装生产依赖与 ffmpeg，不携带 Next/React。
 - 健康检查：`GET /api/health`。
 - 反向代理：把 `NEXT_PUBLIC_APP_URL` 设为公开域名，并确保代理传递 `X-Forwarded-Proto`（HTTPS 时 `COOKIE_SECURE` 会自动启用）。
 
