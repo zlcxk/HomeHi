@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "HomeHi — 私人家庭生活记录与事项管理",
+  "license": "MIT",
   "scripts": {
     "dev": "node scripts/ensure-dirs.mjs && prisma migrate deploy && next dev",
     "dev:all": "node scripts/ensure-dirs.mjs && prisma migrate deploy && concurrently -n web,worker -c cyan,magenta \"next dev\" \"npm:worker\"",
