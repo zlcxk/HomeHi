@@ -81,7 +81,7 @@ export function MediaPicker({
         </div>
       )}
 
-      <div className="glassbar sticky bottom-0 z-20 -mx-4 mt-5 border-t border-line px-4 py-3 pb-[calc(12px+env(safe-area-inset-bottom))] sm:mx-0 sm:rounded-2xl sm:border sm:px-4">
+      <div className="glassbar sticky bottom-[var(--bottom-dock)] z-20 -mx-4 mt-5 border-t border-line px-4 py-3 pb-[calc(12px+env(safe-area-inset-bottom))] sm:mx-0 sm:rounded-2xl sm:border sm:px-4">
         <div className="flex items-center justify-between gap-3">
           <span className="text-[11.5px] text-faint">已选 {selected.length} 张</span>
           <SubmitButton className="btn btn-primary btn-sm" disabled={selected.length === 0}>

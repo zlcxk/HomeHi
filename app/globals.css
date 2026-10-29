@@ -53,6 +53,9 @@
   --shadow-soft: 0 28px 64px -36px rgba(58, 42, 24, 0.42);
   --shadow-lift: 0 18px 38px -22px rgba(58, 42, 24, 0.36);
   --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.65) inset, 0 20px 44px -38px rgba(58, 42, 24, 0.5);
+  /* 底部悬浮导航占住的高度。登录后主界面（.app-shell）在移动端会覆盖它，
+     页面内的 sticky 底栏据此停在导航上方；专注编辑页没有导航，保持 0。 */
+  --bottom-dock: 0px;
   color-scheme: light;
 }
 
@@ -1107,8 +1110,21 @@ select.field option,
   }
 }
 
+/* 底部导航在移动端占用的高度：10px 底部间距 + 64px 胶囊 = 74px，中间悬浮
+   按钮还会高出胶囊约 5px。sticky 底栏停在 94px 处，与导航之间留出约 15px
+   间隙；页面留白再在此基础上加 18px。桌面端导航隐藏，归零。 */
+.app-shell {
+  --bottom-dock: calc(94px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    --bottom-dock: 0px;
+  }
+}
+
 .page-pad {
-  padding-bottom: calc(104px + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--bottom-dock) + 18px);
 }
 
 @media (min-width: 1024px) {

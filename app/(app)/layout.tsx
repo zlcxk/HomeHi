@@ -6,7 +6,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const context = await requireContext();
 
   return (
-    <div className="min-h-dvh">
+    <div className="app-shell min-h-dvh">
       <AppNavigation
         userName={context.user.displayName}
         userEmail={context.user.email}
