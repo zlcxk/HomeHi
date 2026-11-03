@@ -42,10 +42,32 @@ export function firstError(error: z.ZodError): string {
   return error.issues[0]?.message || "请检查填写内容";
 }
 
+/** bcrypt 只使用前 72 个字节，更长的部分会被静默丢弃，因此这里直接拒绝。 */
+export function utf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
+const COMMON_PASSWORDS = new Set([
+  "12345678",
+  "123456789",
+  "1234567890",
+  "11111111",
+  "88888888",
+  "password",
+  "password1",
+  "password123",
+  "qwerty123",
+  "abc12345",
+  "iloveyou",
+  "admin123",
+]);
+
 export const passwordSchema = z
   .string()
   .min(8, "密码至少 8 位")
-  .max(200, "密码过长");
+  .max(200, "密码过长")
+  .refine((value) => utf8ByteLength(value) <= 72, "密码过长（最多 72 字节）")
+  .refine((value) => !COMMON_PASSWORDS.has(value.toLowerCase()), "这个密码过于常见，请换一个");
 
 export const setupSchema = z.object({
   householdName: z.string().trim().min(1, "请填写家庭空间名称").max(60, "名称过长"),
@@ -229,7 +251,7 @@ export const mediaUpdateSchema = z.object({
 export const memberSchema = z.object({
   email: z.email("邮箱格式不正确"),
   displayName: z.string().trim().min(1, "请填写成员称呼").max(40, "称呼过长"),
-  password: z.string().min(8, "临时密码至少 8 位").max(200),
+  password: passwordSchema,
 });
 
 export const changePasswordSchema = z

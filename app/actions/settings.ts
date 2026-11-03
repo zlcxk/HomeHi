@@ -257,18 +257,33 @@ export async function removeMemberAction(formData: FormData): Promise<void> {
   const userId = formString(formData, "userId");
   if (!userId || userId === context.user.id) return;
 
-  const membership = await prisma.householdMember.findUnique({
-    where: { householdId_userId: { householdId: context.household.id, userId } },
-  });
-  if (membership) {
-    await prisma.householdMember.delete({
+  await prisma.$transaction(async (tx) => {
+    const membership = await tx.householdMember.findUnique({
       where: { householdId_userId: { householdId: context.household.id, userId } },
     });
-    await prisma.familyProfile.updateMany({
+    if (!membership) return;
+
+    // 服务端显式保护：家庭必须至少保留一个 OWNER。
+    if (membership.role === "OWNER") {
+      const owners = await tx.householdMember.count({
+        where: { householdId: context.household.id, role: "OWNER" },
+      });
+      if (owners <= 1) return;
+    }
+
+    await tx.householdMember.delete({
+      where: { householdId_userId: { householdId: context.household.id, userId } },
+    });
+    // 旧会话立即失效；即使之后重新加入，旧 Cookie 也不会恢复。
+    await tx.user.update({
+      where: { id: userId },
+      data: { sessionVersion: { increment: 1 } },
+    });
+    await tx.familyProfile.updateMany({
       where: { householdId: context.household.id, linkedUserId: userId },
       data: { linkedUserId: null },
     });
-  }
+  });
   revalidatePath("/settings/household");
   revalidatePath("/profiles");
 }

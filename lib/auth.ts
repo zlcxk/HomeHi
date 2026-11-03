@@ -4,8 +4,9 @@ import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
-import { compare, hash } from "bcryptjs";
+import { compare, hash, hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { requireAuthSecret } from "@/lib/env";
 import { resolveSecureCookie } from "@/lib/session-cookie";
 
 export const SESSION_COOKIE = "homehi_session";
@@ -15,14 +16,11 @@ export type SessionPayload = {
   userId: string;
   householdId: string;
   role: string;
+  sessionVersion: number;
 };
 
 function secretKey(): Uint8Array {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret || secret.length < 16) {
-    throw new Error("AUTH_SECRET 未配置或过短，请检查 .env");
-  }
-  return new TextEncoder().encode(secret);
+  return new TextEncoder().encode(requireAuthSecret());
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -30,6 +28,24 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export async function verifyPassword(password: string, passwordHash: string): Promise<boolean> {
+  return compare(password, passwordHash);
+}
+
+let dummyHash: string | null = null;
+
+/**
+ * 用户不存在时也跑一次 bcrypt，避免通过响应时间判断邮箱是否注册。
+ * 第一次使用时生成一个固定哈希，之后复用。
+ */
+export async function verifyPasswordOrDummy(
+  password: string,
+  passwordHash: string | null | undefined,
+): Promise<boolean> {
+  if (!passwordHash) {
+    dummyHash ??= hashSync("homehi-timing-equalizer", 11);
+    await compare(password, dummyHash);
+    return false;
+  }
   return compare(password, passwordHash);
 }
 
@@ -77,6 +93,9 @@ export async function readSession(): Promise<SessionPayload | null> {
       userId: payload.userId,
       householdId: payload.householdId,
       role: typeof payload.role === "string" ? payload.role : "MEMBER",
+      // 旧版本签发的 Cookie 没有这个字段，按 0 处理，保证升级后仍可继续使用。
+      sessionVersion:
+        typeof payload.sessionVersion === "number" ? payload.sessionVersion : 0,
     };
   } catch {
     return null;
@@ -117,6 +136,8 @@ export const getContext = cache(async (): Promise<AppContext | null> => {
     include: { user: true, household: true },
   });
   if (!membership) return null;
+  // 改密、被移出家庭等情况会自增 sessionVersion，旧 Token 立即失效。
+  if (membership.user.sessionVersion !== session.sessionVersion) return null;
   return {
     session,
     user: {

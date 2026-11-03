@@ -93,6 +93,8 @@ export const MIME_EXTENSION: Record<string, string> = {
 export const DEMO_SETTING_KEY = "demo_seeded";
 export const LAST_EXPORT_SETTING_KEY = "last_export_at";
 export const STORAGE_SETTING_KEY = "storage_config";
+/** 初始化完成标记。利用 AppSetting.key 的唯一约束保证只允许一次初始化。 */
+export const SETUP_COMPLETED_KEY = "setup_completed_at";
 
 export const PAGE_SIZE = 20;
 export const MEDIA_PAGE_SIZE = 36;

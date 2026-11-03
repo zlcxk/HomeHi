@@ -22,6 +22,8 @@ model User {
   notifyTask        Boolean   @default(true)
   notifyOther       Boolean   @default(true)
   avatarMediaId     String?
+  // 会话版本：改密、被移出家庭等操作会自增，旧 JWT 随之失效。
+  sessionVersion    Int       @default(0)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   lastLoginAt       DateTime?
@@ -658,4 +660,16 @@ model TripLink {
   trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
   @@index([tripId, sortOrder])
+}
+
+/// 登录失败限流。存在数据库里而不是进程内存，多进程和容器重启后仍然有效。
+/// key 是 "ip:<sha256>" 或 "email:<sha256>"，不保存明文 IP / 邮箱。
+model AuthThrottle {
+  key             String   @id
+  failures        Int      @default(0)
+  windowStartedAt DateTime @default(now())
+  lockedUntil     DateTime?
+  updatedAt       DateTime @updatedAt
+
+  @@index([updatedAt])
 }
