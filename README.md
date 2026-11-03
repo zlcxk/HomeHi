@@ -11,7 +11,7 @@ HomeHi 是一套可以部署在自己服务器或 NAS 上的家庭记录系统�
 
 它不追求「社交」和「涨粉」：没有公开主页、没有推荐流、没有第三方统计脚本，也不要求把照片上传到任何人的云空间。一个实例服务一个家庭，成员由家庭管理员直接创建，不需要邀请码、不需要注册入口。
 
-文档：[用户指南](docs/user-guide/README.md) · [部署指南](docs/deployment/README.md) · [常见问题](docs/user-guide/faq.md)
+文档：[用户指南](docs/user-guide/README.md) · [部署指南](docs/deployment/README.md) · [常见问题](docs/user-guide/faq.md) · [开源发布验收清单](docs/open-source-acceptance.md)
 
 ---
 
