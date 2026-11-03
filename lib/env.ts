@@ -39,6 +39,15 @@ export function requireAuthSecret(): string {
 }
 
 /**
+ * 数据导出（完整照片和视频）默认关闭，只有显式设为 true / 1 才开启。
+ * Web 入口和 /api/export 必须使用同一个判断，避免只隐藏按钮却仍能直接访问接口。
+ */
+export function isDataExportEnabled(value: string | undefined = process.env.DATA_EXPORT_ENABLED): boolean {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "true" || normalized === "1";
+}
+
+/**
  * 服务启动时调用（instrumentation.ts）。
  * 生产环境缺少或使用弱 AUTH_SECRET 时拒绝启动，避免带着错误配置上线。
  * 构建阶段不会执行 instrumentation，因此不影响 `next build` 和镜像构建。

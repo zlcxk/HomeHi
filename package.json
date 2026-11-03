@@ -13,6 +13,7 @@
     "worker:prod": "tsx scripts/worker.ts",
     "media:backfill": "tsx scripts/media-backfill.ts",
     "backup": "tsx scripts/backup.ts",
+    "restore": "tsx scripts/restore.ts",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",

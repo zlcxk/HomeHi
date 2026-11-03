@@ -38,6 +38,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./storage:/app/storage
+      - ./backups:/app/backups
     depends_on:
       web:
         condition: service_healthy

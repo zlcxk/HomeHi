@@ -183,7 +183,9 @@ npm run dev:all             # 同时启动 web 与 worker
 | `WORKER_POLL_SECONDS` | 否 | `30` | worker 轮询间隔 |
 | `WORKER_REMINDER_HORIZON_DAYS` | 否 | `180` | 提前生成提醒的天数窗口 |
 | `FFMPEG_PATH` | 否 | 自动探测 | 自定义 ffmpeg 路径 |
+| `DATA_EXPORT_ENABLED` | 否 | `false` | 是否开启完整数据导出；关闭时前端入口隐藏，`/api/export` 也会拒绝 |
 | `BACKUP_DIR` | 否 | `./backups` | `npm run backup` 的输出目录 |
+| `BACKUP_KEEP` | 否 | `7` | 保留最近 N 份备份，更早的自动清理 |
 
 > 使用阿里云 OSS 时，建议在 RAM 中为 HomeHi 单独创建子账号，只授予目标 Bucket 的读写权限并定期轮换密钥。AccessKey Secret 会以明文保存在数据库中，请限制数据库文件的访问权限。
 
@@ -225,11 +227,12 @@ npm run worker:prod  # 另开进程
 
 | 方式 | 用途 |
 | --- | --- |
-| 设置 → 数据 → 导出 | 下载 `homehi-export-YYYY-MM-DD.zip`：`homehi-data.json`（完整结构化数据）、`media/`（原图与视频）、`topics/`（议题附件） |
-| `npm run backup` | 复制数据库与本地媒体到 `backups/homehi-<时间戳>/`，数据库用 `VACUUM INTO` 生成一致性快照 |
+| 设置 → 数据 → 导出 | **默认关闭**（`DATA_EXPORT_ENABLED=false`）。开启后仅家庭管理员可用，下载 `homehi-export-YYYY-MM-DD.zip`：`homehi-data.json`（完整结构化数据）、`media/`（原图与视频）、`topics/`（议题附件）。每次导出都会写入 `AuditLog` |
+| `npm run backup` | 用 `VACUUM INTO` 生成一致性数据库快照，并复制本地媒体到 `backups/homehi-<时间戳>/`。快照失败直接中止，不会退化成不安全的热复制；默认保留最近 7 份 |
+| `npm run restore -- <备份目录> --force` | 先停 web / worker，再恢复数据库与本地媒体。当前数据会重命名为 `*.before-restore-*`，确认无误后再删除 |
 | 存储后端快照 | 使用 OSS 时，媒体请依赖 OSS 的版本控制或跨区域复制 |
 
-备份只是复制，恢复需要手动把 `homehi.db` 和媒体目录放回 `data/`、`storage/`。建议在 cron 中每天执行一次备份，并把备份目录同步到另一块磁盘或对象存储。
+导出的 ZIP 不落在 `public/` 或任何静态目录，只通过鉴权接口实时打包；关闭开关时接口返回 403。备份包含数据库和本地媒体，使用 OSS 时媒体不在备份内，需要单独保护 Bucket。建议在 cron 中每天执行一次备份，并把备份目录同步到另一块磁盘或对象存储。
 
 ## 媒体处理
 
@@ -286,7 +289,8 @@ public/travel/      内置旅行主题封面
 | `npm run build` / `npm run start` | 生产构建 / 生产启动（含迁移） |
 | `npm run worker` / `npm run worker:prod` | 开发 / 生产运行 worker |
 | `npm run media:backfill` | 补齐缺失或过期的媒体变体 |
-| `npm run backup` | 备份数据库与本地媒体 |
+| `npm run backup` | 备份数据库与本地媒体（一致性快照 + 保留策略） |
+| `npm run restore -- <目录> --force` | 从备份恢复数据库与本地媒体 |
 | `npm run db:migrate` / `db:deploy` / `db:studio` / `db:reset` | 迁移与数据库工具 |
 | `npm run seed` | 载入示例数据 |
 | `npm test` / `npm run test:watch` | 单元测试 |

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Download, HardDrive, Sparkles, Trash2 } from "lucide-react";
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { isDataExportEnabled } from "@/lib/env";
 import { STORAGE_KIND_LABEL, getStorageConfig, storageUsage } from "@/lib/storage";
 import { formatBytes } from "@/lib/format";
 import { DEMO_SETTING_KEY, LAST_EXPORT_SETTING_KEY } from "@/lib/constants";
@@ -24,9 +25,11 @@ export default async function DataSettingsPage() {
   ]);
 
   const demoSeeded = demoSetting?.value === "true";
+  const exportEnabled = isDataExportEnabled();
 
   return (
     <div className="space-y-5">
+      {exportEnabled ? (
       <section className="card p-4 sm:p-5">
         <h2 className="flex items-center gap-2 text-[13px] font-semibold">
           <Download size={15} className="text-muted" /> 导出全部数据
@@ -52,6 +55,7 @@ export default async function DataSettingsPage() {
           <p className="mt-3 text-[11px] text-faint">只有家庭管理员可以导出全部数据。</p>
         )}
       </section>
+      ) : null}
 
       <section className="card p-4 sm:p-5">
         <h2 className="flex items-center gap-2 text-[13px] font-semibold">

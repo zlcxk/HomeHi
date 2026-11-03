@@ -1,7 +1,11 @@
 import { Readable } from "node:stream";
 import { ZipArchive } from "archiver";
+import { headers } from "next/headers";
 import { getApiContext } from "@/lib/auth";
+import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
+import { isDataExportEnabled } from "@/lib/env";
+import { clientIp } from "@/lib/login-throttle";
 import { getStorageDriver } from "@/lib/storage";
 import { LAST_EXPORT_SETTING_KEY } from "@/lib/constants";
 import { DateTime } from "luxon";
@@ -33,7 +37,23 @@ function topicAttachmentPath(topicId: string, item: { id: string; originalFilena
 export async function GET() {
   const context = await getApiContext();
   if (!context) return new Response("请先登录", { status: 401 });
-  if (context.role !== "OWNER") return new Response("只有家庭管理员可以导出数据", { status: 403 });
+
+  const audience = {
+    householdId: context.household.id,
+    userId: context.user.id,
+    action: "DATA_EXPORT",
+    ip: clientIp(await headers()),
+  };
+
+  // 服务端强制校验开关，关闭时即使直接访问接口也不可用。
+  if (!isDataExportEnabled()) {
+    await recordAuditEvent({ ...audience, result: "DENIED", detail: "export-disabled" });
+    return new Response("数据导出功能未启用", { status: 403 });
+  }
+  if (context.role !== "OWNER") {
+    await recordAuditEvent({ ...audience, result: "DENIED", detail: "not-owner" });
+    return new Response("只有家庭管理员可以导出数据", { status: 403 });
+  }
 
   const householdId = context.household.id;
   const [
@@ -220,6 +240,13 @@ export async function GET() {
       householdId,
     },
     update: { value: new Date().toISOString(), householdId },
+  });
+
+  // 记录打包完成（流式传输期间的失败由客户端感知；审计记录的是本次授权导出）。
+  await recordAuditEvent({
+    ...audience,
+    result: "SUCCESS",
+    detail: `media=${media.length};topics=${topics.length}`,
   });
 
   const filename = `homehi-export-${DateTime.now().toFormat("yyyy-LL-dd")}.zip`;

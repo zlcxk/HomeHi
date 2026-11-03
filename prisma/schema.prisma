@@ -673,3 +673,19 @@ model AuthThrottle {
 
   @@index([updatedAt])
 }
+
+/// 敏感操作审计。只追加，不保存密码、Token 或文件内容；IP 只保存哈希。
+/// 不建关联关系，避免家庭或用户删除后审计记录被级联清理。
+model AuditLog {
+  id          String   @id @default(cuid())
+  householdId String?
+  userId      String?
+  action      String
+  result      String
+  ipHash      String?
+  detail      String?
+  createdAt   DateTime @default(now())
+
+  @@index([householdId, createdAt])
+  @@index([createdAt])
+}
