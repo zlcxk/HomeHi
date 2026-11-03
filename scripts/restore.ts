@@ -1,10 +1,11 @@
 import "dotenv/config";
 
-import { chmod, copyFile, cp, rename, rm, stat } from "node:fs/promises";
+import { chmod, copyFile, cp, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { DateTime } from "luxon";
 import {
   applyPrivatePermissions,
+  backupRoot,
   databasePath,
   exists,
   isSqliteFile,
@@ -23,6 +24,14 @@ function usage(): never {
     ].join("\n"),
   );
   process.exit(1);
+}
+
+/** 清空目录内容但保留目录本身，避免在 Docker 里删除 bind mount 挂载点。 */
+async function clearDirectory(target: string): Promise<void> {
+  const entries = await readdir(target).catch(() => []);
+  for (const entry of entries) {
+    await rm(path.join(target, entry), { recursive: true, force: true });
+  }
 }
 
 async function main() {
@@ -49,35 +58,54 @@ async function main() {
   }
 
   const stamp = DateTime.now().toFormat("yyyyLLdd-HHmmss");
-  const parked: Array<{ target: string; parked: string }> = [];
+  const parkedFiles: Array<{ target: string; saved: string }> = [];
+  let parkedStorage: { target: string; saved: string } | null = null;
 
-  async function park(target: string): Promise<string | null> {
-    if (!(await exists(target))) return null;
+  async function parkFile(target: string): Promise<void> {
+    if (!(await exists(target))) return;
     const saved = `${target}.before-restore-${stamp}`;
     await rename(target, saved);
-    parked.push({ target, parked: saved });
-    return saved;
+    parkedFiles.push({ target, saved });
+  }
+
+  /**
+   * Docker 里 storage 是 bind mount，不能直接 rename 挂载点；而且跨挂载点
+   * rename 会返回 EXDEV。这里改为完整复制到 backups 目录，保留失败回滚能力。
+   */
+  async function parkStorage(): Promise<{ target: string; saved: string } | null> {
+    if (!(await exists(storageTarget))) {
+      await mkdir(storageTarget, { recursive: true });
+      return null;
+    }
+    const saved = path.join(backupRoot(), `pre-restore-${stamp}-storage`);
+    await cp(storageTarget, saved, { recursive: true });
+    return { target: storageTarget, saved };
   }
 
   try {
     // 先移走当前数据库及其 WAL/SHM，避免旧日志文件污染恢复后的数据库。
-    await park(dbTarget);
-    await park(`${dbTarget}-wal`);
-    await park(`${dbTarget}-shm`);
+    await parkFile(dbTarget);
+    await parkFile(`${dbTarget}-wal`);
+    await parkFile(`${dbTarget}-shm`);
 
     await copyFile(backupDb, dbTarget);
     if (process.platform !== "win32") await chmod(dbTarget, 0o600);
 
     if (await exists(backupStorage)) {
-      await park(storageTarget);
+      parkedStorage = await parkStorage();
+      await clearDirectory(storageTarget);
       await cp(backupStorage, storageTarget, { recursive: true });
       await applyPrivatePermissions(storageTarget);
     }
   } catch (error) {
     // 尽力回滚，避免恢复失败后既没有新数据也找不到旧数据。
-    for (const item of parked.reverse()) {
+    for (const item of parkedFiles.reverse()) {
       await rm(item.target, { recursive: true, force: true }).catch(() => {});
-      await rename(item.parked, item.target).catch(() => {});
+      await rename(item.saved, item.target).catch(() => {});
+    }
+    if (parkedStorage) {
+      await clearDirectory(parkedStorage.target).catch(() => {});
+      await cp(parkedStorage.saved, parkedStorage.target, { recursive: true }).catch(() => {});
     }
     throw new Error(`恢复失败，已尝试还原原有数据：${error instanceof Error ? error.message : String(error)}`);
   }
@@ -90,12 +118,13 @@ async function main() {
     console.log("备份中没有 storage/；保留了当前本地媒体目录。使用 OSS 时媒体不在备份内。");
   }
 
-  if (parked.length > 0) {
+  if (parkedFiles.length > 0 || parkedStorage) {
     console.log("\n原数据已保留，确认恢复无误后可手动删除：");
-    for (const item of parked) console.log(`  ${item.parked}`);
-    console.log("\n如需回滚：停止服务，删除当前文件，再把上面的 .before-restore-* 改回原名。");
+    for (const item of parkedFiles) console.log(`  ${item.saved}`);
+    if (parkedStorage) console.log(`  ${parkedStorage.saved}`);
+    console.log("\n如需回滚：停止服务，把当前数据移走后，将上面的文件 / 目录改回原名。");
   } else {
-    console.log("\n之前没有可保留的数据库文件。");
+    console.log("\n之前没有可保留的数据库或媒体文件。");
   }
   console.log("\n下一步：启动 web 和 worker，登录后核对记录数量与媒体是否正常。");
 }

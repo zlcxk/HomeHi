@@ -1,0 +1,90 @@
+HomeHi
+=====
+
+HomeHi — 私人家庭生活记录与事项管理。
+
+Copyright (c) 2026 HomeHi contributors
+
+本项目以 MIT 许可证发布，完整文本见同目录的 LICENSE 文件。
+
+本 NOTICE 汇总随项目一起分发的第三方组件及其许可证。它不是法律意见；
+如需精确条款，请以各组件自带的 LICENSE 文件为准。
+
+
+一、直接依赖
+------------
+
+以下组件通过 package.json 引入。版本以 package-lock.json 为准。
+
+| 组件                 | 许可证        | 用途                         |
+| -------------------- | ------------- | ---------------------------- |
+| next                 | MIT           | Web 框架                     |
+| react / react-dom    | MIT           | UI 运行时                    |
+| @prisma/client       | Apache-2.0    | 数据库访问                   |
+| prisma（开发依赖）   | Apache-2.0    | 数据库迁移与代码生成         |
+| sharp                | Apache-2.0    | 图片处理与缩略图             |
+| bcryptjs             | BSD-3-Clause  | 密码哈希                     |
+| jose                 | MIT           | JWT 会话                     |
+| zod                  | MIT           | 输入校验                     |
+| luxon                | MIT           | 时区与日期处理               |
+| lunar-typescript     | MIT           | 农历转换                     |
+| archiver             | MIT           | 数据导出 ZIP                 |
+| ali-oss              | MIT           | 阿里云 OSS 存储后端          |
+| nodemailer           | MIT-0         | 邮件发送                     |
+| exifr                | MIT           | 照片 EXIF 读取               |
+| dotenv               | BSD-2-Clause  | 环境变量加载                 |
+| tsx                  | MIT           | 运行 TypeScript 脚本         |
+| lucide-react         | ISC           | 图标                         |
+
+开发依赖（TypeScript、Tailwind CSS、Vitest、concurrently 等）不会进入
+生产运行镜像，其许可证同样可以在各自包中找到。
+
+
+二、字体
+--------
+
+Instrument Serif（app/fonts/instrument-serif-latin.woff2 与
+instrument-serif-latin-italic.woff2）
+
+Copyright 2022 The Instrument Serif Project Authors
+(https://github.com/Instrument/instrument-serif)
+
+以 SIL Open Font License 1.1 授权。完整文本见 app/fonts/OFL.txt。
+
+
+三、Docker 镜像中的系统组件
+----------------------------
+
+发布到镜像仓库的 web / worker 镜像基于 Debian bookworm-slim，并包含
+Debian 提供的系统软件包：
+
+- openssl、ca-certificates（web 与 worker）
+- ffmpeg（仅 worker，用于视频转码和封面抽取）
+
+这些软件包不由 HomeHi 的 MIT 许可证覆盖，其许可证和版权声明位于镜像内的
+/usr/share/doc/<包名>/copyright。Debian 的 ffmpeg 构建可能包含 GPL 组件；
+如果你重新分发镜像，请一并遵守相应许可证。
+
+
+四、ffmpeg-static（可选）
+-------------------------
+
+package.json 将 ffmpeg-static 列为 optionalDependencies，许可证为
+GPL-3.0-or-later。它仅用于本地开发或没有系统 ffmpeg 的环境；官方
+Docker 镜像使用系统 ffmpeg，并已从 worker 镜像中删除该包。
+
+如果你在自行分发的产物中包含 ffmpeg-static 或其下载的二进制文件，需要
+遵守 GPL-3.0-or-later 的条款。
+
+
+五、传递依赖
+------------
+
+node_modules 中的传递依赖各自带有许可证。安装依赖后可用工具（例如
+license-checker）生成完整清单；发布二进制分发版时请自行完成合规检查。
+
+
+六、无担保
+----------
+
+本项目及上述组件均按“现状”提供，不附带任何明示或暗示的担保。

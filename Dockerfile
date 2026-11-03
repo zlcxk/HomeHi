@@ -97,7 +97,10 @@ COPY prisma ./prisma
 COPY --from=deps /app/node_modules/.prisma ./node_modules/.prisma
 
 # Next/React 只服务 web，删掉可以显著缩小 worker 镜像。
+# ffmpeg-static 在这里也没有用途（--ignore-scripts 不会下载二进制）；运行时
+# lib/video.ts 的动态 import 会失败并回退到上面安装的系统 ffmpeg。
 RUN rm -rf node_modules/next node_modules/@next node_modules/react node_modules/react-dom node_modules/lucide-react \
+    node_modules/ffmpeg-static \
   && mkdir -p data storage backups
 
 CMD ["npm", "run", "worker:prod"]
