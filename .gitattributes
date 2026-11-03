@@ -1,0 +1,2 @@
+# 部署脚本在 Linux / NAS 上执行，必须保持 LF，否则会出现 \r 报错。
+*.sh text eol=lf

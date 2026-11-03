@@ -127,20 +127,19 @@ Web 与 worker 共享同一个数据库和存储目录。web 负责页面与上�
 
 ## 快速开始
 
-### Docker（推荐）
+### Docker（推荐，仅 AMD64）
 
 ```bash
+uname -m                      # 必须是 x86_64 或 amd64；ARM64 不受支持
 git clone https://github.com/zlcxk/HomeHi.git
 cd HomeHi
-cp .env.example .env
-# 修改 .env 中的 AUTH_SECRET，至少 32 个字符：
-#   openssl rand -base64 48
-docker compose up -d --build
+# 在 deploy.sh 中填入项目负责人提供的 ACR 只读拉取凭证
+bash deploy.sh
 ```
 
-打开 `http://localhost:3000`，按提示在 `/setup` 建立家庭空间。首次启动会自动执行数据库迁移。
+打开 `http://localhost:3000`，按提示在 `/setup` 建立家庭空间。脚本会自动生成 `.env` 和随机 `AUTH_SECRET`，首次启动会自动执行数据库迁移。
 
-`docker-compose.yml` 启动两个容器（web + worker），共享 `./data` 与 `./storage`；`.env` 里的变量会同时注入两者。
+`docker-compose.yml` 启动两个容器（web + worker），使用 `HOMEHI_VERSION` 指定的 ACR 镜像，共享 `./data`、`./storage` 与 `./backups`；`.env` 里的变量会同时注入两者。NAS 上不构建镜像。
 
 ### 本地开发
 
@@ -171,6 +170,7 @@ npm run dev:all             # 同时启动 web 与 worker
 | `AUTH_SECRET` | **是** | — | 会话签名密钥，至少 32 字符 |
 | `DATABASE_URL` | 否 | `file:../data/homehi.db` | SQLite 路径，相对 `prisma/schema.prisma` |
 | `NEXT_PUBLIC_APP_URL` | 否 | `http://localhost:3000` | 邮件和绝对链接使用的公开地址 |
+| `HOMEHI_VERSION` | 否 | `latest` | Docker 镜像标签；`deploy.sh` / `update.sh` 会写回 `.env`，web 与 worker 共用 |
 | `DEFAULT_TIMEZONE` | 否 | `Asia/Shanghai` | 新空间默认时区（IANA 名称） |
 | `COOKIE_SECURE` | 否 | 自动 | 留空时依据 `x-forwarded-proto` 判断，全站 HTTPS 可设 `true` |
 | `STORAGE_DRIVER` | 否 | `local` | `local` 或 `oss`；也可在「设置 → 存储」中修改 |
@@ -191,18 +191,41 @@ npm run dev:all             # 同时启动 web 与 worker
 
 ## 部署
 
-### Docker Compose
+### 一键部署（NAS / Docker，仅 AMD64）
+
+HomeHi 只发布 `linux/amd64` 镜像，位于阿里云 ACR：
+
+- `registry.cn-hangzhou.aliyuncs.com/opxk-public/homehi-web`
+- `registry.cn-hangzhou.aliyuncs.com/opxk-public/homehi-worker`
+
+**不支持 ARM64。** 在 ARM 设备上运行会直接失败，部署脚本也会提前拒绝。
+
+首次部署：
 
 ```bash
-docker compose up -d --build     # 构建并启动
-docker compose logs -f web       # 查看日志
-docker compose pull && docker compose up -d --build   # 更新
+git clone https://github.com/zlcxk/HomeHi.git
+cd HomeHi
+# 按项目负责人提供的方式，在 deploy.sh 中填入 ACR 只读拉取凭证
+bash deploy.sh              # 默认 latest；也可指定版本：bash deploy.sh 1.2.3
 ```
 
-- 数据卷：`./data`（SQLite）、`./storage`（本地媒体）。升级前备份这两个目录。
-- 镜像：同一份 `Dockerfile` 产出 `web` 与 `worker` 两个构建目标。web 使用 Next.js standalone 输出，不携带构建依赖和 ffmpeg，只额外加入迁移用的 Prisma CLI；worker 只安装生产依赖与 ffmpeg，不携带 Next/React。
+`deploy.sh` 依次完成：架构检查（`uname -m`）、Docker / Compose v2 检查、从 `.env.example` 生成 `.env` 并写入随机 `AUTH_SECRET`、创建 `data/ storage/ backups/`、登录 ACR、拉取 `HOMEHI_VERSION` 镜像、启动容器并等待 `GET /api/health`。
+
+更新：
+
+```bash
+bash update.sh 1.2.3        # 固定到具体版本，并写回 .env
+bash update.sh              # 沿用 .env 中的 HOMEHI_VERSION
+bash update.sh latest       # 跟随 latest（不推荐长期使用）
+```
+
+- 数据卷：`./data`（SQLite）、`./storage`（本地媒体）、`./backups`（备份）。升级前建议先执行 `docker compose exec worker npm run backup`。
+- 镜像版本：`docker-compose.yml` 使用 `${HOMEHI_VERSION}`，web 与 worker 始终同版本。
+- 本机不构建镜像。`Dockerfile` 仅供项目维护者构建并推送 ACR，或在没有镜像的环境自行构建。
 - 健康检查：`GET /api/health`。
 - 反向代理：把 `NEXT_PUBLIC_APP_URL` 设为公开域名，并确保代理传递 `X-Forwarded-Proto`（HTTPS 时 `COOKIE_SECURE` 会自动启用）。
+
+> 安全提醒：ACR 只读凭证按方案以明文保存在 `deploy.sh` 中，不要提交到公开仓库、复制到 issue 或截图，部署后建议 `chmod 700 deploy.sh update.sh`。泄露后请立即在 ACR 轮换。
 
 ### 不走 Docker
 
