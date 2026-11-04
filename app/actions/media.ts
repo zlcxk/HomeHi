@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/auth";
 import { canViewMedia } from "@/lib/access";
 import { MAX_ALBUM_MEDIA_BATCH } from "@/lib/media-dedupe";
+import { purgeMedia, restoreMedia, softDeleteMedia } from "@/lib/media-lifecycle";
 import {
   firstError,
   formArray,
@@ -75,10 +76,7 @@ export async function deleteMediaAction(formData: FormData): Promise<void> {
   const context = await getContext();
   if (!context) redirect("/login");
   const id = formString(formData, "id");
-  const media = await prisma.media.findUnique({
-    where: { id },
-    include: { entryLinks: true, albumLinks: true },
-  });
+  const media = await prisma.media.findUnique({ where: { id } });
   if (
     !media ||
     media.householdId !== context.household.id ||
@@ -86,15 +84,50 @@ export async function deleteMediaAction(formData: FormData): Promise<void> {
   ) {
     redirect("/photos");
   }
-  if (media.status === "ACTIVE") {
-    await prisma.media.update({
-      where: { id },
-      data: { status: "DELETED", deletedAt: new Date(), dedupeScope: null },
-    });
-    await prisma.albumMedia.deleteMany({ where: { mediaId: id } });
-  }
+  // 只做软删除：原图和变体保留，仍被记录/旅行引用的照片可以恢复。
+  if (media.status === "ACTIVE") await softDeleteMedia(id);
   revalidatePhotoSurfaces();
   redirect("/photos");
+}
+
+export async function restoreMediaAction(formData: FormData): Promise<void> {
+  const context = await getContext();
+  if (!context) redirect("/login");
+  const id = formString(formData, "id");
+  const media = await prisma.media.findUnique({ where: { id } });
+  if (
+    !media ||
+    media.householdId !== context.household.id ||
+    (media.uploadedBy !== context.user.id && context.role !== "OWNER")
+  ) {
+    redirect("/trash");
+  }
+  const result = await restoreMedia(id);
+  revalidatePhotoSurfaces(id);
+  revalidatePath("/trash");
+  if (!result.ok) {
+    redirect(`/trash?error=${encodeURIComponent(result.error)}`);
+  }
+  redirect("/trash");
+}
+
+export async function purgeMediaAction(formData: FormData): Promise<void> {
+  const context = await getContext();
+  if (!context) redirect("/login");
+  const id = formString(formData, "id");
+  const media = await prisma.media.findUnique({ where: { id } });
+  if (
+    !media ||
+    media.householdId !== context.household.id ||
+    (media.uploadedBy !== context.user.id && context.role !== "OWNER")
+  ) {
+    redirect("/trash");
+  }
+  // 失败原因写在 Media.purgeError 上，回收站会显示并允许再次尝试。
+  await purgeMedia(id);
+  revalidatePhotoSurfaces(id);
+  revalidatePath("/trash");
+  redirect("/trash");
 }
 
 export async function saveAlbumAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -137,6 +170,7 @@ export async function deleteAlbumAction(formData: FormData): Promise<void> {
   const id = formString(formData, "id");
   const album = await prisma.album.findUnique({ where: { id } });
   if (album && album.householdId === context.household.id) {
+    // 只删除相册和其中的 AlbumMedia 关联；Media 记录与文件保持原样。
     await prisma.album.delete({ where: { id } });
   }
   revalidatePath("/photos");

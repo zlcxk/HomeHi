@@ -332,6 +332,9 @@ model Media {
   // 视频和历史数据为 null，不参与去重；SQLite 唯一索引允许多个 NULL。
   dedupeScope      String?
   deletedAt        DateTime?
+  // 彻底删除失败时保留可追踪的错误，回收站据此展示原因并允许重试。
+  purgeError       String?
+  purgeAttemptedAt DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

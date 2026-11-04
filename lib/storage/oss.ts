@@ -4,6 +4,7 @@ import type {
   StorageDriver,
   StorageKind,
   StorageUsage,
+  StoredListItem,
   StoredObject,
   StoredStat,
 } from "./types";
@@ -154,6 +155,26 @@ export class OssStorageDriver implements StorageDriver {
     }
 
     return { bytes, files, partial };
+  }
+
+  async *list(prefix = ""): AsyncGenerator<StoredListItem> {
+    const client = await this.client();
+    const logicalPrefix = prefix.replace(/^\/+/, "");
+    let marker: string | undefined;
+
+    for (;;) {
+      const page = await client.list({
+        prefix: `${this.prefix}${logicalPrefix}`,
+        "max-keys": 1000,
+        marker,
+      });
+      for (const object of page.objects ?? []) {
+        if (!object.name.startsWith(this.prefix)) continue;
+        yield { key: object.name.slice(this.prefix.length), size: object.size };
+      }
+      if (!page.isTruncated || !page.nextMarker) break;
+      marker = page.nextMarker;
+    }
   }
 
   async check(): Promise<void> {

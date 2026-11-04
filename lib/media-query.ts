@@ -59,25 +59,21 @@ export type MediaPage = {
  * 十万级数据下无法稳定命中索引；这里手工拆成“非空拍摄时间”和“空拍摄时间”
  * 两段，前者耗尽后再接上后者，顺序仍是 [takenAt desc, createdAt desc, id desc]。
  */
-export async function getPhotoMediaPage(
+async function queryMediaPage(
   viewer: MediaViewer,
+  base: Prisma.MediaWhereInput,
+  cursorParam: string | null | undefined,
   timezone: string,
-  options: { view?: MediaListView; cursor?: string | null } = {},
 ): Promise<MediaPage> {
-  const cursor = normalizeMediaCursor(options.cursor);
-  const base: Prisma.MediaWhereInput = {
-    ...mediaWhere(viewer),
-    ...(options.view === "videos" ? { mediaType: "VIDEO" } : {}),
-    ...(options.view === "favorites" ? { favorite: true } : {}),
-  };
-
+  const cursor = normalizeMediaCursor(cursorParam);
   const anchor = cursor
     ? await prisma.media.findFirst({
-        where: { id: cursor, householdId: viewer.householdId },
+        // 锚点也必须在当前用户可见范围内，不能用别人的私有照片定位。
+        where: { AND: [mediaWhere(viewer), { id: cursor }] },
         select: { id: true, takenAt: true, createdAt: true },
       })
     : null;
-  // 游标对应的媒体已被硬删除时没有可续接的位置，避免从头重复返回。
+  // 游标对应的媒体已被删除或不可见时没有可续接的位置，避免从头重复返回。
   if (cursor && !anchor) return { items: [], nextCursor: null };
 
   let rows: MediaGridRow[] = [];
@@ -145,6 +141,19 @@ export async function getPhotoMediaPage(
   };
 }
 
+export async function getPhotoMediaPage(
+  viewer: MediaViewer,
+  timezone: string,
+  options: { view?: MediaListView; cursor?: string | null } = {},
+): Promise<MediaPage> {
+  const base: Prisma.MediaWhereInput = {
+    ...mediaWhere(viewer),
+    ...(options.view === "videos" ? { mediaType: "VIDEO" } : {}),
+    ...(options.view === "favorites" ? { favorite: true } : {}),
+  };
+  return queryMediaPage(viewer, base, options.cursor, timezone);
+}
+
 /**
  * 相册内保持用户自定义 sortOrder；用 [albumId, mediaId] 复合游标分页，
  * 不对整个相册做 offset 查询。
@@ -157,8 +166,16 @@ export async function getAlbumMediaPage(
 ): Promise<MediaPage> {
   const cursor = normalizeMediaCursor(cursorParam);
   const anchor = cursor
-    ? await prisma.albumMedia.findUnique({
-        where: { albumId_mediaId: { albumId, mediaId: cursor } },
+    ? await prisma.albumMedia.findFirst({
+        where: {
+          albumId,
+          mediaId: cursor,
+          media: {
+            householdId: viewer.householdId,
+            status: "ACTIVE",
+            OR: [{ visibility: "HOUSEHOLD" }, { uploadedBy: viewer.userId }],
+          },
+        },
         select: { sortOrder: true, mediaId: true },
       })
     : null;
@@ -201,24 +218,12 @@ export async function getAlbumPickerPage(
   timezone: string,
   cursorParam?: string | null,
 ): Promise<MediaPage> {
-  const cursor = normalizeMediaCursor(cursorParam);
-  const rows = await prisma.media.findMany({
-    where: {
-      ...mediaWhere(viewer),
-      albumLinks: { none: { albumId } },
-    },
-    orderBy: mediaOrderBy(),
-    take: MEDIA_PAGE_SIZE + 1,
-    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-    select: MEDIA_GRID_SELECT,
-  });
-
-  const hasMore = rows.length > MEDIA_PAGE_SIZE;
-  const page = rows.slice(0, MEDIA_PAGE_SIZE);
-  return {
-    items: page.map((row) => toGridItem(row, timezone)),
-    nextCursor: hasMore ? page[page.length - 1]?.id ?? null : null,
-  };
+  return queryMediaPage(
+    viewer,
+    { ...mediaWhere(viewer), albumLinks: { none: { albumId } } },
+    cursorParam,
+    timezone,
+  );
 }
 
 /** 相册数量上限：超过 1000 后只显示“1000+”，避免十万级相册每次全量计数。 */

@@ -15,14 +15,24 @@ export default async function DataSettingsPage() {
   const context = await requireContext();
   const isOwner = context.role === "OWNER";
 
-  const [config, usage, demoSetting, exportSetting, demoCounts, trashCount] = await Promise.all([
-    getStorageConfig(),
-    storageUsage().catch(() => null),
-    prisma.appSetting.findUnique({ where: { key: DEMO_SETTING_KEY } }),
-    prisma.appSetting.findUnique({ where: { key: LAST_EXPORT_SETTING_KEY } }),
-    prisma.entry.count({ where: { householdId: context.household.id, isDemo: true } }),
-    prisma.entry.count({ where: { householdId: context.household.id, status: "DELETED" } }),
-  ]);
+  const [config, usage, demoSetting, exportSetting, demoCounts, trashCount, trashMediaCount] =
+    await Promise.all([
+      getStorageConfig(),
+      storageUsage().catch(() => null),
+      prisma.appSetting.findUnique({ where: { key: DEMO_SETTING_KEY } }),
+      prisma.appSetting.findUnique({ where: { key: LAST_EXPORT_SETTING_KEY } }),
+      prisma.entry.count({ where: { householdId: context.household.id, isDemo: true } }),
+      prisma.entry.count({ where: { householdId: context.household.id, status: "DELETED" } }),
+      prisma.media.count({
+        where: {
+          householdId: context.household.id,
+          status: "DELETED",
+          ...(context.role === "OWNER"
+            ? { OR: [{ uploadedBy: context.user.id }, { visibility: "HOUSEHOLD" }] }
+            : { uploadedBy: context.user.id }),
+        },
+      }),
+    ]);
 
   const demoSeeded = demoSetting?.value === "true";
   const exportEnabled = isDataExportEnabled();
@@ -122,7 +132,9 @@ export default async function DataSettingsPage() {
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-medium">回收站</p>
           <p className="text-[10.5px] text-faint">
-            {trashCount > 0 ? `${trashCount} 条已删除的记录` : "没有待处理的记录"}
+            {trashCount + trashMediaCount > 0
+              ? `${trashCount + trashMediaCount} 条已删除的内容`
+              : "没有待处理的内容"}
           </p>
         </div>
       </Link>

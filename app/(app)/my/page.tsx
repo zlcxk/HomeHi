@@ -26,7 +26,7 @@ export default async function MyPage() {
   const context = await requireContext();
   const viewer = { userId: context.user.id, householdId: context.household.id };
 
-  const [entryCount, photoCount, openTaskCount, memberCount, trashCount, profile] = await Promise.all([
+  const [entryCount, photoCount, openTaskCount, memberCount, trashCount, trashMediaCount, profile] = await Promise.all([
     prisma.entry.count({ where: { ...publishedEntryWhere(viewer), createdBy: context.user.id } }),
     prisma.media.count({ where: { ...mediaWhere(viewer), uploadedBy: context.user.id } }),
     prisma.task.count({
@@ -42,6 +42,16 @@ export default async function MyPage() {
         householdId: context.household.id,
         status: "DELETED",
         OR: [{ visibility: "HOUSEHOLD" }, { createdBy: context.user.id }],
+      },
+    }),
+    // 与回收站保持一致：OWNER 不自作主张展示其他成员的 PRIVATE 照片。
+    prisma.media.count({
+      where: {
+        householdId: context.household.id,
+        status: "DELETED",
+        ...(context.role === "OWNER"
+          ? { OR: [{ uploadedBy: context.user.id }, { visibility: "HOUSEHOLD" }] }
+          : { uploadedBy: context.user.id }),
       },
     }),
     prisma.familyProfile.findFirst({
@@ -69,7 +79,13 @@ export default async function MyPage() {
     { href: "/settings/email", label: "邮件设置", icon: Mail, hint: "SMTP 与测试" },
     { href: "/settings/data", label: "数据与导出", icon: Database, hint: "导出、示例数据" },
     { href: "/settings/appearance", label: "外观", icon: Palette, hint: "配色与明暗" },
-    { href: "/trash", label: "回收站", icon: Trash2, hint: trashCount > 0 ? `${trashCount} 条待处理` : "空的" },
+    {
+      href: "/trash",
+      label: "回收站",
+      icon: Trash2,
+      hint:
+        trashCount + trashMediaCount > 0 ? `${trashCount + trashMediaCount} 条待处理` : "空的",
+    },
   ];
 
   return (

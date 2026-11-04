@@ -26,6 +26,11 @@ export type StorageUsage = {
   partial?: boolean;
 };
 
+export type StoredListItem = {
+  key: string;
+  size: number;
+};
+
 /**
  * 所有存储后端都实现这一组最小操作。key 是数据库里保存的逻辑路径
  * （例如 `media/2026/10/xxx.jpg`），具体后端可以再加自己的前缀。
@@ -37,6 +42,11 @@ export interface StorageDriver {
   stat(key: string): Promise<StoredStat | null>;
   remove(key: string): Promise<void>;
   usage(): Promise<StorageUsage | null>;
+  /**
+   * 枚举对象，供只读审计比对数据库和存储。key 是逻辑路径，不含后端前缀；
+   * 本地和 OSS 使用同一种格式。
+   */
+  list(prefix?: string): AsyncIterable<StoredListItem>;
   /** 读写删一个临时对象；配置有误时抛出可读的错误。 */
   check(): Promise<void>;
 }

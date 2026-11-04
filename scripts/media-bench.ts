@@ -198,6 +198,46 @@ async function runSize(size: number) {
           }
       : mediaWhere;
 
+    const pickerBase = { ...mediaWhere, albumLinks: { none: { albumId: smallAlbum.id } } };
+    const pickerFirst = await prisma.media.findMany({
+      where: pickerBase,
+      orderBy,
+      take: PAGE_SIZE + 1,
+      select: { id: true, takenAt: true, createdAt: true },
+    });
+    const pickerAnchor = pickerFirst[PAGE_SIZE - 1] ?? null;
+    const pickerKeysetWhere = pickerAnchor
+      ? pickerAnchor.takenAt
+        ? {
+            AND: [
+              pickerBase,
+              {
+                OR: [
+                  { takenAt: { lt: pickerAnchor.takenAt } },
+                  { takenAt: pickerAnchor.takenAt, createdAt: { lt: pickerAnchor.createdAt } },
+                  {
+                    takenAt: pickerAnchor.takenAt,
+                    createdAt: pickerAnchor.createdAt,
+                    id: { lt: pickerAnchor.id },
+                  },
+                ],
+              },
+            ],
+          }
+        : {
+            AND: [
+              pickerBase,
+              {
+                takenAt: null,
+                OR: [
+                  { createdAt: { lt: pickerAnchor.createdAt } },
+                  { createdAt: pickerAnchor.createdAt, id: { lt: pickerAnchor.id } },
+                ],
+              },
+            ],
+          }
+      : pickerBase;
+
     console.log(
       `\n=== size=${size} node=${process.version} ${os.platform()} ${os.arch()} cpu=${os.cpus()[0]?.model} db=${(dbBytes / 1024 / 1024).toFixed(1)}MB seed=${seedMs.toFixed(0)}ms ===`,
     );
@@ -263,7 +303,15 @@ async function runSize(size: number) {
     );
     await percentile("picker (album has 10%)", () =>
       prisma.media.findMany({
-        where: { ...mediaWhere, albumLinks: { none: { albumId: smallAlbum.id } } },
+        where: pickerBase,
+        orderBy,
+        take: PAGE_SIZE + 1,
+        select: { id: true },
+      }),
+    );
+    await percentile("picker page2 keyset (album has 10%)", () =>
+      prisma.media.findMany({
+        where: pickerKeysetWhere,
         orderBy,
         take: PAGE_SIZE + 1,
         select: { id: true },

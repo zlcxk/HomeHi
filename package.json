@@ -21,6 +21,7 @@
     "seed": "tsx scripts/seed.ts",
     "test": "vitest run",
     "bench:media": "tsx scripts/media-bench.ts",
+    "audit:media": "tsx scripts/media-audit.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "postinstall": "prisma generate"

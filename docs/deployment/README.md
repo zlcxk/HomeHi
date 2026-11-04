@@ -19,6 +19,7 @@
 | [NAS / Docker 一键部署](nas-deploy.md) | 首次部署、目录结构、端口、开机自启 |
 | [配置说明](configuration.md) | 必填与常用环境变量、密钥、导出开关 |
 | [备份与恢复](backup-restore.md) | 备份命令、保留策略、恢复演练、OSS 边界 |
+| [媒体删除与审计](../media-lifecycle.md) | 软删除、彻底清理、失败重试、存储一致性检查 |
 | [升级与回滚](upgrade.md) | `update.sh`、版本固定、回滚注意事项 |
 | [反向代理与 HTTPS](reverse-proxy.md) | Nginx / Caddy 示例、上传大小、Cookie |
 | [故障排查](troubleshooting.md) | 健康检查、日志、权限、提醒、上传 |

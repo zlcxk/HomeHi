@@ -7,6 +7,7 @@ import type {
   StorageDriver,
   StorageKind,
   StorageUsage,
+  StoredListItem,
   StoredObject,
   StoredStat,
 } from "./types";
@@ -99,6 +100,40 @@ export class LocalStorageDriver implements StorageDriver {
 
     await walk(storageRoot());
     return { bytes, files };
+  }
+
+  async *list(prefix = ""): AsyncGenerator<StoredListItem> {
+    const root = storageRoot();
+    const normalized = prefix.replace(/^\/+/, "");
+
+    async function* walk(dir: string, relative: string): AsyncGenerator<StoredListItem> {
+      let items;
+      try {
+        items = await readdir(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const item of items) {
+        const key = relative ? `${relative}/${item.name}` : item.name;
+        if (item.isDirectory()) {
+          // 目录名与目标前缀没有交集时不必继续深入。
+          const intersects =
+            !normalized ||
+            `${key}/`.startsWith(normalized) ||
+            normalized.startsWith(`${key}/`);
+          if (intersects) yield* walk(path.join(dir, item.name), key);
+        } else if (item.isFile() && key.startsWith(normalized)) {
+          try {
+            const info = await stat(path.join(dir, item.name));
+            yield { key, size: info.size };
+          } catch {
+            // 扫描期间被删除，跳过。
+          }
+        }
+      }
+    }
+
+    yield* walk(root, "");
   }
 
   async check(): Promise<void> {
