@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { getApiContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
-  blockingReferenceCount,
-  getMediaReferenceCount,
+  getMediaReferenceCounts,
+  hasAnyMediaReference,
   purgeMedia,
   softDeleteMedia,
 } from "@/lib/media-lifecycle";
@@ -12,8 +12,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * 删除上传的媒体。从未被任何业务引用的孤儿直接清理；其余只做软删除，
- * 保留原图和变体，等用户在回收站彻底删除。
+ * 取消一张尚未保存到记录/相册的上传。
+ *
+ * 和界面上的「删除照片」一样先走软删除，再尝试彻底删除：如果这张图已经
+ * 被记录、旅行、头像等业务引用，彻底删除会被拒绝，记录留在回收站，
+ * 由用户确认后处理。这样不会出现绕过引用检查的直接清理。
  */
 export async function DELETE(
   _request: Request,
@@ -31,15 +34,18 @@ export async function DELETE(
     return NextResponse.json({ error: "没有权限删除这个文件" }, { status: 403 });
   }
 
-  // 软删除会解除相册关联和封面/头像等字段；先记录删除前是否存在引用，
-  // 避免把“相册里唯一一张图”误判成可立即物理清理的孤儿。
-  const before = await getMediaReferenceCount(id);
-  if (media.status === "ACTIVE") await softDeleteMedia(id);
-
-  if (blockingReferenceCount(before) > 0) {
+  if (media.status !== "ACTIVE") {
     return NextResponse.json({ ok: true, purged: false });
   }
 
+  // 同一账号重复上传会复用已有记录，列表里这一项可能正是记录/相册里
+  // 已经使用的照片。用户只是把它从当前表单移除，不能因此软删除。
+  const counts = (await getMediaReferenceCounts([id])).get(id);
+  if (counts && hasAnyMediaReference(counts)) {
+    return NextResponse.json({ ok: true, purged: false });
+  }
+
+  await softDeleteMedia(id);
   const purged = await purgeMedia(id);
   if (!purged.ok) {
     return NextResponse.json({ ok: true, purged: false, error: purged.error });

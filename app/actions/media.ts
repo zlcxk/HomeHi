@@ -17,9 +17,14 @@ import {
 } from "@/lib/validation";
 
 function revalidatePhotoSurfaces(mediaId?: string) {
-  revalidatePath("/photos");
+  // 删除/恢复会同时影响相册、记录正文、回收站和计数，按布局整体失效，
+  // 避免 30 秒客户端缓存里还留着已经隐藏或刚恢复的照片。
+  revalidatePath("/photos", "layout");
+  revalidatePath("/entries", "layout");
   revalidatePath("/today");
   revalidatePath("/timeline");
+  revalidatePath("/trash");
+  revalidatePath("/my");
   if (mediaId) revalidatePath(`/photos/${mediaId}`);
 }
 
@@ -124,9 +129,12 @@ export async function purgeMediaAction(formData: FormData): Promise<void> {
     redirect("/trash");
   }
   // 失败原因写在 Media.purgeError 上，回收站会显示并允许再次尝试。
-  await purgeMedia(id);
+  const result = await purgeMedia(id);
   revalidatePhotoSurfaces(id);
   revalidatePath("/trash");
+  if (!result.ok) {
+    redirect(`/trash?error=${encodeURIComponent(result.error)}`);
+  }
   redirect("/trash");
 }
 
@@ -242,7 +250,8 @@ export async function removeMediaFromAlbumAction(formData: FormData): Promise<vo
   await prisma.albumMedia.deleteMany({ where: { albumId, mediaId } });
   if (album.coverMediaId === mediaId) {
     const next = await prisma.albumMedia.findFirst({
-      where: { albumId },
+      // 相册关联在软删除时会保留；选下一张封面时必须跳过回收站里的媒体。
+      where: { albumId, media: { status: "ACTIVE" } },
       orderBy: { sortOrder: "asc" },
     });
     await prisma.album.update({
@@ -262,8 +271,8 @@ export async function setAlbumCoverAction(formData: FormData): Promise<void> {
   const mediaId = formString(formData, "mediaId");
   const album = await prisma.album.findUnique({ where: { id: albumId } });
   if (!album || album.householdId !== context.household.id) redirect("/photos");
-  const link = await prisma.albumMedia.findUnique({
-    where: { albumId_mediaId: { albumId, mediaId } },
+  const link = await prisma.albumMedia.findFirst({
+    where: { albumId, mediaId, media: { status: "ACTIVE" } },
   });
   if (link) {
     await prisma.album.update({ where: { id: albumId }, data: { coverMediaId: mediaId } });

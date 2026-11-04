@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
   output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   // ali-oss/urllib 带有可选的 native/代理依赖，交给 Node 运行时按需加载。
   serverExternalPackages: ["@prisma/client", "sharp", "nodemailer", "archiver", "ali-oss"],
+  // standalone 的文件追踪不会带上 sharp 的 libvips 动态库（libvips-42.dll 等），
+  // 生产环境上传图片会报 ERR_DLOPEN_FAILED。显式把 sharp 与平台包纳入输出。
+  outputFileTracingIncludes: {
+    "/*": ["node_modules/sharp/**/*", "node_modules/@img/**/*"],
+  },
   // 页面都是登录后的动态渲染，保留一小段客户端缓存，来回切换时不必重新请求。
   experimental: {
     staleTimes: {

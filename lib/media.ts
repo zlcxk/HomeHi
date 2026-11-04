@@ -23,6 +23,18 @@ import {
   normalizedMediaVisibility,
 } from "@/lib/media-dedupe";
 
+/**
+ * 上传流程里已经翻译成用户可读信息的失败。
+ * 原始错误通过 cause 保留给服务端日志，界面只看到可操作的提示，
+ * 不暴露存储路径、SQLite 或 Prisma 的内部信息。
+ */
+class UploadFailure extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "UploadFailure";
+  }
+}
+
 const IMAGE_TYPES = new Set<string>(MEDIA_IMAGE_TYPES);
 const VIDEO_TYPES = new Set<string>(MEDIA_VIDEO_TYPES);
 const HEIC_TYPES = new Set(["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"]);
@@ -157,9 +169,11 @@ function toUploadedMedia(media: UploadRecord): UploadedMedia {
 }
 
 /**
- * 只查找当前用户有权复用的图片：共享图片可被家庭成员复用，
- * 私有图片只能由原上传者复用。查询条件与唯一约束保持一致，
- * 不返回、也不泄露其他用户私有媒体的任何字段。
+ * 只查找当前上传者自己的图片。
+ *
+ * 去重复用不能改变上传者权限：如果共享图片复用了其他成员的 Media 行，
+ * 新上传者将无法编辑或删除自己刚刚上传的内容。因此共享图片也按上传者
+ * 隔离，宁可多存一份文件，也不让权限和归属发生变化。
  */
 async function findReusableImage(
   checksum: string,
@@ -175,7 +189,7 @@ async function findReusableImage(
       dedupeScope,
       status: "ACTIVE",
       visibility,
-      ...(visibility === "PRIVATE" ? { uploadedBy: context.user.id } : {}),
+      uploadedBy: context.user.id,
     },
     orderBy: { createdAt: "asc" },
   });
@@ -226,7 +240,13 @@ export async function processMediaUpload(
 
   // 先按内容查找可复用媒体。命中时完全不写第二份原图，也不重复生成变体。
   if (dedupeScope) {
-    const reusable = await findReusableImage(checksum, visibility, context);
+    let reusable: Awaited<ReturnType<typeof findReusableImage>>;
+    try {
+      reusable = await findReusableImage(checksum, visibility, context);
+    } catch (error) {
+      console.error("[media upload] 去重查询失败", error);
+      throw new UploadFailure("照片信息读取失败，请稍后重试", { cause: error });
+    }
     if (reusable) {
       void ensureThumbnail(reusable).catch(() => undefined);
       return toUploadedMedia(reusable);
@@ -236,7 +256,15 @@ export async function processMediaUpload(
   const extension = MIME_EXTENSION[mime] || "bin";
   const storageKey = makeStorageKey(extension);
   // 新文件写入当前配置的活动存储后端；历史文件仍按各自记录的后端读取。
-  const driver = await getStorageDriver();
+  let driver: Awaited<ReturnType<typeof getStorageDriver>>;
+  try {
+    driver = await getStorageDriver();
+  } catch (error) {
+    console.error("[media upload] 存储后端不可用", error);
+    throw new UploadFailure("存储服务暂时不可用，请联系管理员检查存储配置", {
+      cause: error,
+    });
+  }
 
   let thumbnailKey: string | null = null;
   let thumbnailWidth: number | null = null;
@@ -252,7 +280,13 @@ export async function processMediaUpload(
 
   let created: Awaited<ReturnType<typeof prisma.media.create>>;
   try {
-    await driver.put(storageKey, buffer, mime);
+    try {
+      await driver.put(storageKey, buffer, mime);
+    } catch (error) {
+      throw new UploadFailure("文件保存失败，请检查存储空间或存储服务后重试", {
+        cause: error,
+      });
+    }
 
     if (isImage) {
       const meta = await imageMetadata(buffer);
@@ -298,34 +332,45 @@ export async function processMediaUpload(
 
     if (!takenAt) takenAt = new Date();
 
-    created = await prisma.media.create({
-      data: {
-        householdId: context.household.id,
-        uploadedBy: context.user.id,
-        mediaType,
-        originalFilename: sanitizeFilename(file.name),
-        mimeType: mime,
-        fileSize: file.size,
-        storageKey,
-        storageDriver: driver.kind,
-        thumbnailKey,
-        thumbnailWidth,
-        thumbnailHeight,
-        thumbnailStatus,
-        thumbnailVersion: thumbnailKey ? THUMB_VERSION : 0,
-        displayStatus,
-        displayError,
-        playbackStatus,
-        width,
-        height,
-        durationSeconds,
-        takenAt,
-        visibility,
-        checksum,
-        dedupeScope,
-      },
-    });
+    try {
+      created = await prisma.media.create({
+        data: {
+          householdId: context.household.id,
+          uploadedBy: context.user.id,
+          mediaType,
+          originalFilename: sanitizeFilename(file.name),
+          mimeType: mime,
+          fileSize: file.size,
+          storageKey,
+          storageDriver: driver.kind,
+          thumbnailKey,
+          thumbnailWidth,
+          thumbnailHeight,
+          thumbnailStatus,
+          thumbnailVersion: thumbnailKey ? THUMB_VERSION : 0,
+          displayStatus,
+          displayError,
+          playbackStatus,
+          width,
+          height,
+          durationSeconds,
+          takenAt,
+          visibility,
+          checksum,
+          dedupeScope,
+        },
+      });
+    } catch (error) {
+      // 唯一约束交给外层复用并发上传的那条记录。
+      if (dedupeScope && isUniqueConstraintError(error)) throw error;
+      throw new UploadFailure("照片信息保存失败，请稍后重试", { cause: error });
+    }
   } catch (error) {
+    // 原始错误只留在服务端日志里，界面看到的是下面的可操作提示。
+    console.error("[media upload] 上传流程失败", error);
+    if (error instanceof UploadFailure && error.cause) {
+      console.error("[media upload] 原始原因", error.cause);
+    }
     // 数据库写入失败、存储失败或客户端中断：删除本次刚写入的对象。
     await cleanupUploadObjects([storageKey, thumbnailKey], driver);
 
@@ -337,7 +382,8 @@ export async function processMediaUpload(
         return toUploadedMedia(reusable);
       }
     }
-    throw error;
+    if (error instanceof UploadFailure) throw error;
+    throw new UploadFailure("上传失败，请稍后重试", { cause: error });
   }
 
   // 上传响应先返回；缩略图在后台补。没有 worker 时，列表第一次请求也会兜底生成。

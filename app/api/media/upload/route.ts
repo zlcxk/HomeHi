@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getApiContext } from "@/lib/auth";
 import { processMediaUpload } from "@/lib/media";
 
@@ -35,6 +36,11 @@ export async function POST(request: Request) {
       },
       context,
     );
+
+    // 上传成功后立即使照片页的服务端结果失效；页面还配置了 30 秒的
+    // 客户端动态缓存，不在这里主动失效会让用户回到照片页时看不到新图。
+    revalidatePath("/photos");
+    revalidatePath("/my");
 
     return NextResponse.json({
       media: {

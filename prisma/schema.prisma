@@ -46,6 +46,8 @@ model User {
   topicDates       TopicDate[]
   trips            Trip[]            @relation("TripCreator")
   tripVisits       TripVisit[]       @relation("TripVisitCreator")
+
+  @@index([avatarMediaId])
 }
 
 model Household {
@@ -113,6 +115,7 @@ model FamilyProfile {
   entries    EntryProfile[]
 
   @@index([householdId, profileType])
+  @@index([avatarMediaId])
 }
 
 model Asset {
@@ -146,6 +149,7 @@ model Asset {
   @@index([householdId, category])
   @@index([householdId, warrantyUntil])
   @@index([householdId, insuranceUntil])
+  @@index([photoMediaId])
 }
 
 model Topic {
@@ -263,21 +267,23 @@ model TopicTask {
 }
 
 model Entry {
-  id           String    @id @default(cuid())
-  householdId  String
-  createdBy    String
-  entryType    String // MOMENT | STORY | EVENT_RECAP | GENERAL
-  title        String?
-  body         String?
-  location     String?
-  occurredAt   DateTime
-  coverMediaId String?
-  visibility   String    @default("HOUSEHOLD")
-  status       String    @default("PUBLISHED") // DRAFT | PUBLISHED | ARCHIVED | DELETED
-  isDemo       Boolean   @default(false)
-  deletedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  householdId       String
+  createdBy         String
+  entryType         String // MOMENT | STORY | EVENT_RECAP | GENERAL
+  title             String?
+  body              String?
+  location          String?
+  occurredAt        DateTime
+  coverMediaId      String?
+  visibility        String    @default("HOUSEHOLD")
+  status            String    @default("PUBLISHED") // DRAFT | PUBLISHED | ARCHIVED | DELETED
+  // 删除前的业务状态。恢复时原样返回，避免草稿恢复后被公开。
+  deletedFromStatus String?
+  isDemo            Boolean   @default(false)
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
   creator   User           @relation("EntryCreator", fields: [createdBy], references: [id], onDelete: Cascade)
@@ -287,6 +293,9 @@ model Entry {
 
   @@index([householdId, status, occurredAt])
   @@index([householdId, entryType])
+  // worker 按全局保留期扫描回收站；封面字段在软删除时需要反向查找。
+  @@index([status, deletedAt])
+  @@index([coverMediaId])
 }
 
 model Media {
@@ -325,13 +334,18 @@ model Media {
   caption          String?
   favorite         Boolean   @default(false)
   visibility       String    @default("HOUSEHOLD")
-  status           String    @default("ACTIVE") // ACTIVE | DELETED
+  status           String    @default("ACTIVE") // ACTIVE | DELETED | PURGING
   isDemo           Boolean   @default(false)
   checksum         String?
-  // 内容去重范围：共享图片为 SHARED，私有图片为上传者 userId。
-  // 视频和历史数据为 null，不参与去重；SQLite 唯一索引允许多个 NULL。
+  // 内容去重范围：上传者 + 可见性。共享图片按上传者隔离，避免复用他人的
+  // Media 行后无法管理；视频和历史数据为 null，不参与去重。
   dedupeScope      String?
   deletedAt        DateTime?
+  // 软删除时记录并清空封面/头像/物品照片等「独占字段」的快照（JSON）。
+  // 恢复时只在字段仍为空时写回，不覆盖删除期间的新选择。
+  deletedRefs      String?
+  // 彻底删除的认领时间。PURGING 状态下只有认领者可以清理文件和数据库行。
+  purgeStartedAt   DateTime?
   // 彻底删除失败时保留可追踪的错误，回收站据此展示原因并允许重试。
   purgeError       String?
   purgeAttemptedAt DateTime?
@@ -345,6 +359,9 @@ model Media {
   tags            MediaTag[]
   tripVisitPhotos TripVisitPhoto[]
 
+  // 同一家庭内：每个上传者、每种可见性各自去重，不能复用他人媒体。
+  // 唯一索引已覆盖去重查询，无需再为 checksum 单独建索引。
+  @@unique([householdId, checksum, dedupeScope])
   // 列表按 [takenAt, createdAt, id] 稳定排序；游标查询依赖完整的排序键。
   @@index([householdId, status, takenAt, createdAt, id])
   @@index([householdId, status, createdAt, id])
@@ -352,9 +369,9 @@ model Media {
   @@index([householdId, status, mediaType, takenAt, createdAt, id])
   // 收藏筛选：避免先按时间扫描整库再过滤。
   @@index([householdId, status, favorite, takenAt, createdAt, id])
-  // 同一家庭内：共享图片按 SHARED 去重，私有图片按上传者去重。
-  // 唯一索引已覆盖去重查询，无需再为 checksum 单独建索引。
-  @@unique([householdId, checksum, dedupeScope])
+  // worker 按保留期扫描回收站，并回收僵死的 PURGING 认领。
+  @@index([status, deletedAt])
+  @@index([status, purgeStartedAt])
 }
 
 model EntryMedia {
@@ -387,6 +404,7 @@ model Album {
   media     AlbumMedia[]
 
   @@index([householdId])
+  @@index([coverMediaId])
 }
 
 model AlbumMedia {
@@ -616,6 +634,7 @@ model Trip {
 
   @@index([householdId, kind])
   @@index([householdId, startDate])
+  @@index([coverMediaId])
 }
 
 model TripPlace {
@@ -681,11 +700,11 @@ model TripLink {
 /// 登录失败限流。存在数据库里而不是进程内存，多进程和容器重启后仍然有效。
 /// key 是 "ip:<sha256>" 或 "email:<sha256>"，不保存明文 IP / 邮箱。
 model AuthThrottle {
-  key             String   @id
-  failures        Int      @default(0)
-  windowStartedAt DateTime @default(now())
+  key             String    @id
+  failures        Int       @default(0)
+  windowStartedAt DateTime  @default(now())
   lockedUntil     DateTime?
-  updatedAt       DateTime @updatedAt
+  updatedAt       DateTime  @updatedAt
 
   @@index([updatedAt])
 }

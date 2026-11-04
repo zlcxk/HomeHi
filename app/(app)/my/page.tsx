@@ -45,10 +45,11 @@ export default async function MyPage() {
       },
     }),
     // 与回收站保持一致：OWNER 不自作主张展示其他成员的 PRIVATE 照片。
+    // PURGING 仍在回收站里，计数不能在中途突然减少。
     prisma.media.count({
       where: {
         householdId: context.household.id,
-        status: "DELETED",
+        status: { in: ["DELETED", "PURGING"] },
         ...(context.role === "OWNER"
           ? { OR: [{ uploadedBy: context.user.id }, { visibility: "HOUSEHOLD" }] }
           : { uploadedBy: context.user.id }),

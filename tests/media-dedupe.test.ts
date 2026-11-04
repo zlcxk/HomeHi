@@ -1,23 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_ALBUM_MEDIA_BATCH,
-  SHARED_DEDUPE_SCOPE,
   dedupeScopeFor,
   isUniqueConstraintError,
   normalizedMediaVisibility,
 } from "@/lib/media-dedupe";
 
 describe("media dedupe scope", () => {
-  it("共享图片在同一家庭内使用固定 scope", () => {
-    expect(dedupeScopeFor("IMAGE", "HOUSEHOLD", "user-a")).toBe(SHARED_DEDUPE_SCOPE);
-    expect(dedupeScopeFor("IMAGE", undefined, "user-a")).toBe(SHARED_DEDUPE_SCOPE);
+  it("共享图片按上传者隔离，不复用其他成员的媒体", () => {
+    expect(dedupeScopeFor("IMAGE", "HOUSEHOLD", "user-a")).toBe("user-a:HOUSEHOLD");
+    expect(dedupeScopeFor("IMAGE", undefined, "user-a")).toBe("user-a:HOUSEHOLD");
+    expect(dedupeScopeFor("IMAGE", "HOUSEHOLD", "user-a")).not.toBe(
+      dedupeScopeFor("IMAGE", "HOUSEHOLD", "user-b"),
+    );
   });
 
-  it("私有图片按上传者隔离", () => {
-    expect(dedupeScopeFor("IMAGE", "PRIVATE", "user-a")).toBe("user-a");
-    expect(dedupeScopeFor("IMAGE", "PRIVATE", "user-b")).toBe("user-b");
+  it("私有图片按上传者隔离，并与共享版本分开", () => {
+    expect(dedupeScopeFor("IMAGE", "PRIVATE", "user-a")).toBe("user-a:PRIVATE");
+    expect(dedupeScopeFor("IMAGE", "PRIVATE", "user-b")).toBe("user-b:PRIVATE");
     expect(dedupeScopeFor("IMAGE", "PRIVATE", "user-a")).not.toBe(
-      dedupeScopeFor("IMAGE", "PRIVATE", "user-b"),
+      dedupeScopeFor("IMAGE", "HOUSEHOLD", "user-a"),
     );
   });
 

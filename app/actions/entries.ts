@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/auth";
 import { canViewEntry } from "@/lib/access";
+import { purgeEntry, restoreEntry, softDeleteEntry } from "@/lib/entry-lifecycle";
 import { localInputToUtc } from "@/lib/dates";
 import {
   entrySchema,
@@ -105,8 +106,26 @@ export async function saveEntryAction(
   }
 
   let entryId = id;
+  let mediaUnavailable = false;
 
   await prisma.$transaction(async (tx) => {
+    // 校验和写入之间用户可能在另一个标签页删除了照片。进入事务后再确认
+    // 一次，避免把已进入回收站的媒体挂到新记录上。
+    if (data.mediaIds.length > 0) {
+      const activeCount = await tx.media.count({
+        where: {
+          id: { in: data.mediaIds },
+          householdId: context.household.id,
+          status: "ACTIVE",
+          OR: [{ visibility: "HOUSEHOLD" }, { uploadedBy: context.user.id }],
+        },
+      });
+      if (activeCount !== data.mediaIds.length) {
+        mediaUnavailable = true;
+        return;
+      }
+    }
+
     const entryData = {
       entryType: data.entryType,
       title: data.title || null,
@@ -117,6 +136,7 @@ export async function saveEntryAction(
       visibility: data.visibility,
       status: data.status,
       deletedAt: null,
+      deletedFromStatus: null,
     };
 
     if (entryId) {
@@ -173,6 +193,8 @@ export async function saveEntryAction(
     }
   });
 
+  if (mediaUnavailable) return { error: "有照片已失效，请重新选择" };
+
   // Align privacy of freshly attached media with the entry, unless it is shared elsewhere.
   if (entryId && data.mediaIds.length > 0) {
     for (const item of media) {
@@ -204,10 +226,7 @@ export async function deleteEntryAction(formData: FormData): Promise<void> {
   ) {
     redirect("/timeline");
   }
-  await prisma.entry.update({
-    where: { id },
-    data: { status: "DELETED", deletedAt: new Date() },
-  });
+  await softDeleteEntry(id);
   revalidateEntrySurfaces(id);
   redirect("/timeline");
 }
@@ -230,6 +249,7 @@ export async function setEntryStatusAction(formData: FormData): Promise<void> {
     data: {
       status,
       deletedAt: null,
+      deletedFromStatus: null,
     },
   });
   revalidateEntrySurfaces(id);
@@ -241,17 +261,23 @@ export async function restoreEntryAction(formData: FormData): Promise<void> {
   if (!context) redirect("/login");
   const id = formString(formData, "id");
   const entry = await prisma.entry.findUnique({ where: { id } });
+  // 这里不能复用 canViewEntry：它对 DELETED 恒为 false，会导致永远无法恢复。
   if (
-    entry &&
-    canViewEntry(entry, { userId: context.user.id, householdId: context.household.id })
+    !entry ||
+    entry.householdId !== context.household.id ||
+    (entry.createdBy !== context.user.id &&
+      (entry.visibility !== "HOUSEHOLD" || entry.deletedFromStatus === "DRAFT"))
   ) {
-    await prisma.entry.update({
-      where: { id },
-      data: { status: "PUBLISHED", deletedAt: null },
-    });
+    redirect("/trash");
   }
+
+  const result = await restoreEntry(id);
   revalidateEntrySurfaces(id);
   revalidatePath("/trash");
+  if (!result.ok) {
+    redirect(`/trash?error=${encodeURIComponent(result.error)}`);
+  }
+  redirect(`/entries/${id}`);
 }
 
 export async function purgeEntryAction(formData: FormData): Promise<void> {
@@ -260,13 +286,18 @@ export async function purgeEntryAction(formData: FormData): Promise<void> {
   const id = formString(formData, "id");
   const entry = await prisma.entry.findUnique({ where: { id } });
   if (
-    entry &&
-    entry.householdId === context.household.id &&
-    entry.createdBy === context.user.id &&
-    entry.status === "DELETED"
+    !entry ||
+    entry.householdId !== context.household.id ||
+    entry.createdBy !== context.user.id
   ) {
-    await prisma.entry.delete({ where: { id } });
+    redirect("/trash");
   }
+
+  const purged = await purgeEntry(id);
   revalidateEntrySurfaces(id);
   revalidatePath("/trash");
+  if (!purged) {
+    redirect("/trash?error=" + encodeURIComponent("这条记录已不在回收站，请刷新后重试"));
+  }
+  redirect("/trash");
 }

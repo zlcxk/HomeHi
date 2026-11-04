@@ -88,7 +88,7 @@ export default async function PhotoDetailPage({ params }: { params: Promise<{ id
               <input type="hidden" name="id" value={media.id} />
               <ConfirmButton
                 className="icon-btn icon-btn-plain text-faint hover:text-danger"
-                message="删除这张照片？它会从记录和相册中移除。"
+                message="删除这张照片？它会从照片墙、记录和相册中隐藏，可在回收站恢复。"
                 pendingText=""
               >
                 <Trash2 size={16} />

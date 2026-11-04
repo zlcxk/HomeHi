@@ -26,7 +26,7 @@ export default async function DataSettingsPage() {
       prisma.media.count({
         where: {
           householdId: context.household.id,
-          status: "DELETED",
+          status: { in: ["DELETED", "PURGING"] },
           ...(context.role === "OWNER"
             ? { OR: [{ uploadedBy: context.user.id }, { visibility: "HOUSEHOLD" }] }
             : { uploadedBy: context.user.id }),

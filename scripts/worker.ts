@@ -12,14 +12,18 @@ import {
   resolveFfmpeg,
 } from "../lib/video";
 import { drainImageQueue, recoverStaleImageJobs } from "../lib/media-jobs";
+import { runTrashCleanup } from "../lib/trash-cleanup";
 
 const POLL_SECONDS = Math.max(5, Number(process.env.WORKER_POLL_SECONDS || 30));
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
 const RETRY_MINUTES = [5, 15, 45, 120];
 
+const TRASH_CLEANUP_INTERVAL_MS = 10 * 60_000;
+
 let stopping = false;
 let lastExtend = 0;
 let lastVideoRecovery = 0;
+let lastTrashCleanup = 0;
 
 function log(...args: unknown[]) {
   console.log(`[worker ${new Date().toISOString()}]`, ...args);
@@ -236,6 +240,15 @@ async function main() {
         lastVideoRecovery = Date.now();
         await recoverStaleVideoJobs();
         await recoverStaleImageJobs();
+      }
+      // 回收站清理独立于提醒队列；即使当前没有待发提醒，也必须继续运行。
+      if (Date.now() - lastTrashCleanup > TRASH_CLEANUP_INTERVAL_MS) {
+        lastTrashCleanup = Date.now();
+        try {
+          await runTrashCleanup();
+        } catch (error) {
+          log("trash cleanup failed", error);
+        }
       }
       // 图片变体很轻，先排干；视频压缩比较慢，放到后台跑。
       void drainImageQueue();
