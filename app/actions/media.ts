@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/auth";
 import { canViewMedia } from "@/lib/access";
+import { MAX_ALBUM_MEDIA_BATCH } from "@/lib/media-dedupe";
 import {
   firstError,
   formArray,
@@ -142,37 +143,54 @@ export async function deleteAlbumAction(formData: FormData): Promise<void> {
   redirect("/photos");
 }
 
-export async function addMediaToAlbumAction(formData: FormData): Promise<void> {
+export async function addMediaToAlbumAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const context = await getContext();
-  if (!context) redirect("/login");
+  if (!context) return { error: "登录已失效，请重新登录" };
   const albumId = formString(formData, "albumId");
-  const mediaIds = Array.from(new Set(formArray(formData, "mediaIds"))).slice(0, 200);
+  const mediaIds = Array.from(new Set(formArray(formData, "mediaIds")));
 
-  const album = await prisma.album.findUnique({ where: { id: albumId } });
-  if (!album || album.householdId !== context.household.id) redirect("/photos");
-
-  const allowed = mediaIds.length
-    ? await prisma.media.findMany({
-        where: {
-          id: { in: mediaIds },
-          householdId: context.household.id,
-          status: "ACTIVE",
-          OR: [{ visibility: "HOUSEHOLD" }, { uploadedBy: context.user.id }],
-        },
-        select: { id: true },
-      })
-    : [];
-
-  for (const media of allowed) {
-    await prisma.albumMedia.upsert({
-      where: { albumId_mediaId: { albumId, mediaId: media.id } },
-      create: { albumId, mediaId: media.id },
-      update: {},
-    });
+  if (mediaIds.length === 0) return { error: "请先选择照片" };
+  // 超出上限时明确报错，而不是悄悄截断用户的选择。
+  if (mediaIds.length > MAX_ALBUM_MEDIA_BATCH) {
+    return { error: `一次最多添加 ${MAX_ALBUM_MEDIA_BATCH} 张，请分批放入相册` };
   }
-  if (!album.coverMediaId && allowed[0]) {
-    await prisma.album.update({ where: { id: albumId }, data: { coverMediaId: allowed[0].id } });
+
+  const album = await prisma.album.findFirst({
+    where: { id: albumId, householdId: context.household.id },
+    select: { id: true, coverMediaId: true },
+  });
+  if (!album) return { error: "相册不存在或没有权限" };
+
+  const allowed = await prisma.media.findMany({
+    where: {
+      id: { in: mediaIds },
+      householdId: context.household.id,
+      status: "ACTIVE",
+      OR: [{ visibility: "HOUSEHOLD" }, { uploadedBy: context.user.id }],
+    },
+    select: { id: true },
+  });
+  // 有不存在的、已删除的或无权限的 ID：整批拒绝，避免“选中了却没加进去”。
+  if (allowed.length !== mediaIds.length) {
+    return { error: "部分照片已不可用，请刷新列表后重新选择" };
   }
+
+  const cover = album.coverMediaId ? null : allowed[0]?.id ?? null;
+  await prisma.$transaction([
+    ...allowed.map((media) =>
+      prisma.albumMedia.upsert({
+        where: { albumId_mediaId: { albumId, mediaId: media.id } },
+        create: { albumId, mediaId: media.id },
+        update: {},
+      }),
+    ),
+    ...(cover
+      ? [prisma.album.update({ where: { id: albumId }, data: { coverMediaId: cover } })]
+      : []),
+  ]);
 
   revalidatePath("/photos");
   revalidatePath(`/photos/albums/${albumId}`);

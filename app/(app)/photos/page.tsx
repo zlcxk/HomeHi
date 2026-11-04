@@ -1,49 +1,42 @@
 import Link from "next/link";
-import { DateTime } from "luxon";
-import { Camera, Film, FolderPlus, Heart, Images, Play } from "lucide-react";
+import { Camera, Film, FolderPlus, Heart, Images } from "lucide-react";
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { mediaWhere } from "@/lib/access";
+import { normalizeMediaListView } from "@/lib/media-list";
+import { getPhotoMediaPage } from "@/lib/media-query";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
-
-const PAGE_SIZE = 60;
+import { MediaGrid } from "@/components/photos/MediaGrid";
 
 export default async function PhotosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; page?: string }>;
+  searchParams: Promise<{ view?: string }>;
 }) {
   const context = await requireContext();
   const viewer = { userId: context.user.id, householdId: context.household.id };
   const timezone = context.household.timezone;
-  const { view, page: pageParam } = await searchParams;
-  const onlyFavorites = view === "favorites";
-  const onlyVideos = view === "videos";
-  const page = Math.max(1, Number(pageParam) || 1);
+  const { view: viewParam } = await searchParams;
+  const view = normalizeMediaListView(viewParam);
 
-  const where = {
-    ...mediaWhere(viewer),
-    mediaType: onlyVideos ? "VIDEO" : undefined,
-    favorite: onlyFavorites ? true : undefined,
-  };
-
-  const [rows, total, albums] = await Promise.all([
-    prisma.media.findMany({
-      where,
-      orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE + 1,
-      include: { _count: { select: { albumLinks: true } } },
+  const visibleMedia = mediaWhere(viewer);
+  const [initialPage, total, albums] = await Promise.all([
+    getPhotoMediaPage(viewer, timezone, { view }),
+    prisma.media.count({
+      where: {
+        ...visibleMedia,
+        ...(view === "videos" ? { mediaType: "VIDEO" } : {}),
+        ...(view === "favorites" ? { favorite: true } : {}),
+      },
     }),
-    prisma.media.count({ where }),
     prisma.album.findMany({
       where: { householdId: context.household.id },
       orderBy: { updatedAt: "desc" },
       take: 12,
       include: {
-        _count: { select: { media: true } },
         media: {
+          where: { media: visibleMedia },
           orderBy: { sortOrder: "asc" },
           take: 1,
           include: { media: true },
@@ -52,23 +45,17 @@ export default async function PhotosPage({
     }),
   ]);
 
-  const hasMore = rows.length > PAGE_SIZE;
-  const media = rows.slice(0, PAGE_SIZE);
+  const albumIds = albums.map((album) => album.id);
+  const albumCounts = albumIds.length
+    ? await prisma.albumMedia.groupBy({
+        by: ["albumId"],
+        where: { albumId: { in: albumIds }, media: visibleMedia },
+        _count: { _all: true },
+      })
+    : [];
+  const countByAlbum = new Map(albumCounts.map((row) => [row.albumId, row._count._all]));
 
-  const groups = new Map<string, typeof media>();
-  for (const item of media) {
-    const date = DateTime.fromJSDate(item.takenAt ?? item.createdAt, { zone: timezone }).setLocale("zh-CN");
-    const key = date.toFormat("yyyy年M月");
-    const existing = groups.get(key);
-    if (existing) existing.push(item);
-    else groups.set(key, [item]);
-  }
-
-  const filtered = onlyFavorites || onlyVideos;
-  const nextParams = new URLSearchParams();
-  if (onlyFavorites) nextParams.set("view", "favorites");
-  if (onlyVideos) nextParams.set("view", "videos");
-  nextParams.set("page", String(page + 1));
+  const filtered = view !== "all";
 
   return (
     <div>
@@ -100,7 +87,7 @@ export default async function PhotosPage({
                   className="group w-[132px] shrink-0"
                 >
                   <div className="aspect-[4/5] overflow-hidden rounded-2xl border border-line bg-raised">
-                    {cover?.thumbnailKey ? (
+                    {cover && (cover.thumbnailKey || cover.mediaType === "IMAGE") ? (
                       <img
                         src={`/api/media/${cover.id}/thumb?v=${encodeURIComponent(cover.thumbnailKey || "0")}`}
                         alt=""
@@ -117,7 +104,7 @@ export default async function PhotosPage({
                     )}
                   </div>
                   <p className="mt-1.5 truncate text-[12.5px] font-medium">{album.name}</p>
-                  <p className="text-[10.5px] text-faint">{album._count.media} 张</p>
+                  <p className="text-[10.5px] text-faint">{countByAlbum.get(album.id) ?? 0} 张</p>
                 </Link>
               );
             })}
@@ -129,19 +116,19 @@ export default async function PhotosPage({
         <Link href="/photos" className={`chip ${!filtered ? "chip-active" : ""}`}>
           <Images size={12} /> 全部
         </Link>
-        <Link href="/photos?view=favorites" className={`chip ${onlyFavorites ? "chip-active" : ""}`}>
+        <Link href="/photos?view=favorites" className={`chip ${view === "favorites" ? "chip-active" : ""}`}>
           <Heart size={12} /> 收藏
         </Link>
-        <Link href="/photos?view=videos" className={`chip ${onlyVideos ? "chip-active" : ""}`}>
+        <Link href="/photos?view=videos" className={`chip ${view === "videos" ? "chip-active" : ""}`}>
           <Film size={12} /> 视频
         </Link>
         <span className="ml-auto text-[11px] text-faint">{total} 项</span>
       </div>
 
-      {media.length === 0 ? (
+      {initialPage.items.length === 0 ? (
         <EmptyState
           icon={<Camera strokeWidth={1.7} />}
-          title={filtered ? (onlyVideos ? "还没有视频" : "还没有照片") : "照片墙还空着"}
+          title={filtered ? (view === "videos" ? "还没有视频" : "还没有照片") : "照片墙还空着"}
           description={filtered ? "换个筛选看看。" : "从手机相册选几张，或者现在拍一张。"}
           action={
             <Link href="/compose/moment" className="btn btn-primary btn-sm">
@@ -150,58 +137,14 @@ export default async function PhotosPage({
           }
         />
       ) : (
-        <div className="space-y-7">
-          {Array.from(groups.entries()).map(([month, items]) => (
-            <section key={month}>
-              <h2 className="mb-2.5 flex items-baseline gap-2 text-[12px] font-semibold text-muted">
-                {month}
-                <span className="font-normal text-faint">{items.length}</span>
-              </h2>
-              <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 sm:gap-1.5">
-                {items.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={`/photos/${item.id}`}
-                    className="group relative aspect-square overflow-hidden rounded-xl bg-raised"
-                  >
-                    {item.mediaType === "IMAGE" || item.thumbnailKey ? (
-                      <img
-                        src={`/api/media/${item.id}/thumb?v=${encodeURIComponent(item.thumbnailKey || "0")}`}
-                        alt={item.caption || ""}
-                        loading="lazy"
-                        decoding="async"
-                        width={480}
-                        height={480}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-faint">
-                        <Film size={18} />
-                      </div>
-                    )}
-                    {item.mediaType === "VIDEO" ? (
-                      <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur">
-                        <Play size={9} fill="currentColor" />
-                      </span>
-                    ) : null}
-                    {item.favorite ? (
-                      <span className="absolute bottom-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur">
-                        <Heart size={9} fill="currentColor" />
-                      </span>
-                    ) : null}
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ))}
-          {hasMore ? (
-            <div className="pt-1 text-center">
-              <Link href={`/photos?${nextParams.toString()}`} scroll={false} className="btn btn-outline btn-sm">
-                加载更多
-              </Link>
-            </div>
-          ) : null}
-        </div>
+        <MediaGrid
+          key={view}
+          initialItems={initialPage.items}
+          initialCursor={initialPage.nextCursor}
+          view={view}
+          emptyTitle={filtered ? "还没有内容" : "照片墙还空着"}
+          emptyDescription={filtered ? "换个筛选看看。" : "从手机相册选几张，或者现在拍一张。"}
+        />
       )}
     </div>
   );

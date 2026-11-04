@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { mediaWhere } from "@/lib/access";
+import { getAlbumPickerPage } from "@/lib/media-query";
 import { addMediaToAlbumAction } from "@/app/actions/media";
 import { MediaPicker } from "@/components/photos/MediaPicker";
 
@@ -14,17 +14,11 @@ export default async function AddAlbumMediaPage({ params }: { params: Promise<{ 
 
   const album = await prisma.album.findFirst({
     where: { id, householdId: context.household.id },
-    include: { media: { select: { mediaId: true } } },
+    select: { id: true, name: true },
   });
   if (!album) notFound();
 
-  const existing = new Set(album.media.map((link) => link.mediaId));
-  const media = await prisma.media.findMany({
-    where: { ...mediaWhere(viewer), id: { notIn: Array.from(existing) } },
-    orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
-    take: 300,
-    select: { id: true, mediaType: true, thumbnailKey: true, caption: true },
-  });
+  const initialPage = await getAlbumPickerPage(viewer, album.id, context.household.timezone);
 
   return (
     <div>
@@ -41,17 +35,10 @@ export default async function AddAlbumMediaPage({ params }: { params: Promise<{ 
       </header>
 
       <MediaPicker
-        items={media.map((item) => ({
-          id: item.id,
-          mediaType: item.mediaType,
-          thumbUrl:
-            item.thumbnailKey || item.mediaType === "IMAGE"
-              ? `/api/media/${item.id}/thumb?v=${encodeURIComponent(item.thumbnailKey || "0")}`
-              : null,
-          caption: item.caption,
-        }))}
+        albumId={album.id}
+        initialItems={initialPage.items}
+        initialCursor={initialPage.nextCursor}
         action={addMediaToAlbumAction}
-        hidden={{ albumId: album.id }}
       />
     </div>
   );
