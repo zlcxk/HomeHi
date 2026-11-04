@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { publishedEntryWhere, mediaWhere } from "@/lib/access";
+import { mediaWhere, publishedEntryWhere, trashEntryWhere } from "@/lib/access";
 import { logoutAction } from "@/app/actions/auth";
 import { Avatar } from "@/components/Avatar";
 import { PageHeader } from "@/components/PageHeader";
@@ -37,13 +37,8 @@ export default async function MyPage() {
       },
     }),
     prisma.householdMember.count({ where: { householdId: context.household.id } }),
-    prisma.entry.count({
-      where: {
-        householdId: context.household.id,
-        status: "DELETED",
-        OR: [{ visibility: "HOUSEHOLD" }, { createdBy: context.user.id }],
-      },
-    }),
+    // 与回收站使用同一可见性规则，徽标不会把别人的私密/草稿算进来。
+    prisma.entry.count({ where: trashEntryWhere(viewer) }),
     // 与回收站保持一致：OWNER 不自作主张展示其他成员的 PRIVATE 照片。
     // PURGING 仍在回收站里，计数不能在中途突然减少。
     prisma.media.count({

@@ -77,6 +77,44 @@ export function canViewEntry(
   return entry.visibility === "HOUSEHOLD" || entry.createdBy === viewer.userId;
 }
 
+/**
+ * 回收站记录的可见范围。自己的记录始终可见；其他成员只看到明确设为
+ * 家庭可见、且删除前不是草稿的记录。历史数据没有 deletedFromStatus
+ * （null）时按草稿处理，避免升级后把别人未发布的草稿带进回收站。
+ */
+export function trashEntryWhere(viewer: Viewer): Prisma.EntryWhereInput {
+  return {
+    householdId: viewer.householdId,
+    status: "DELETED",
+    OR: [
+      { createdBy: viewer.userId },
+      {
+        visibility: "HOUSEHOLD",
+        deletedFromStatus: { in: ["PUBLISHED", "ARCHIVED"] },
+      },
+    ],
+  };
+}
+
+export function canViewTrashEntry(
+  entry: {
+    householdId: string;
+    createdBy: string;
+    visibility: string;
+    deletedFromStatus: string | null;
+    status: string;
+  },
+  viewer: Viewer,
+): boolean {
+  if (entry.householdId !== viewer.householdId) return false;
+  if (entry.status !== "DELETED") return false;
+  if (entry.createdBy === viewer.userId) return true;
+  return (
+    entry.visibility === "HOUSEHOLD" &&
+    (entry.deletedFromStatus === "PUBLISHED" || entry.deletedFromStatus === "ARCHIVED")
+  );
+}
+
 export function canViewMedia(
   media: { householdId: string; uploadedBy: string; visibility: string; status: string },
   viewer: Viewer,

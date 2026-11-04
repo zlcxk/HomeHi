@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getContext } from "@/lib/auth";
-import { canViewEntry } from "@/lib/access";
+import { canViewEntry, canViewTrashEntry } from "@/lib/access";
 import { purgeEntry, restoreEntry, softDeleteEntry } from "@/lib/entry-lifecycle";
 import { localInputToUtc } from "@/lib/dates";
 import {
@@ -262,11 +262,14 @@ export async function restoreEntryAction(formData: FormData): Promise<void> {
   const id = formString(formData, "id");
   const entry = await prisma.entry.findUnique({ where: { id } });
   // 这里不能复用 canViewEntry：它对 DELETED 恒为 false，会导致永远无法恢复。
+  // 回收站可见性必须和列表一致：别人的私密记录和历史草稿不能通过
+  // 直接提交表单恢复。
   if (
     !entry ||
-    entry.householdId !== context.household.id ||
-    (entry.createdBy !== context.user.id &&
-      (entry.visibility !== "HOUSEHOLD" || entry.deletedFromStatus === "DRAFT"))
+    !canViewTrashEntry(entry, {
+      userId: context.user.id,
+      householdId: context.household.id,
+    })
   ) {
     redirect("/trash");
   }

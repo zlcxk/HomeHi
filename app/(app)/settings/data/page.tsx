@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Download, HardDrive, Sparkles, Trash2 } from "lucide-react";
 import { requireContext } from "@/lib/auth";
+import { trashEntryWhere } from "@/lib/access";
 import { prisma } from "@/lib/db";
 import { isDataExportEnabled } from "@/lib/env";
 import { STORAGE_KIND_LABEL, getStorageConfig, storageUsage } from "@/lib/storage";
@@ -22,7 +23,12 @@ export default async function DataSettingsPage() {
       prisma.appSetting.findUnique({ where: { key: DEMO_SETTING_KEY } }),
       prisma.appSetting.findUnique({ where: { key: LAST_EXPORT_SETTING_KEY } }),
       prisma.entry.count({ where: { householdId: context.household.id, isDemo: true } }),
-      prisma.entry.count({ where: { householdId: context.household.id, status: "DELETED" } }),
+      prisma.entry.count({
+        where: trashEntryWhere({
+          userId: context.user.id,
+          householdId: context.household.id,
+        }),
+      }),
       prisma.media.count({
         where: {
           householdId: context.household.id,

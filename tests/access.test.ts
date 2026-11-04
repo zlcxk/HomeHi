@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { canEditEntry, canViewEntry, canViewMedia } from "@/lib/access";
+import {
+  canEditEntry,
+  canViewEntry,
+  canViewMedia,
+  canViewTrashEntry,
+} from "@/lib/access";
 
 const owner = { userId: "user-a", householdId: "home-1" };
 const partner = { userId: "user-b", householdId: "home-1" };
@@ -35,6 +40,41 @@ describe("entry permissions", () => {
     expect(canEditEntry(shared, partner)).toBe(true);
     expect(canEditEntry(privateEntry, partner)).toBe(false);
     expect(canEditEntry(shared, stranger)).toBe(false);
+  });
+});
+
+describe("trash entry permissions", () => {
+  const deleted = {
+    householdId: "home-1",
+    createdBy: "user-a",
+    visibility: "HOUSEHOLD",
+    status: "DELETED",
+  };
+
+  it("always shows the author their own deleted entry", () => {
+    expect(canViewTrashEntry({ ...deleted, deletedFromStatus: "DRAFT" }, owner)).toBe(true);
+    expect(canViewTrashEntry({ ...deleted, deletedFromStatus: null }, owner)).toBe(true);
+  });
+
+  it("shows other members only shared entries deleted from a published state", () => {
+    expect(canViewTrashEntry({ ...deleted, deletedFromStatus: "PUBLISHED" }, partner)).toBe(true);
+    expect(canViewTrashEntry({ ...deleted, deletedFromStatus: "ARCHIVED" }, partner)).toBe(true);
+    expect(canViewTrashEntry({ ...deleted, deletedFromStatus: "DRAFT" }, partner)).toBe(false);
+  });
+
+  it("hides legacy rows without a saved prior status from other members", () => {
+    expect(canViewTrashEntry({ ...deleted, deletedFromStatus: null }, partner)).toBe(false);
+  });
+
+  it("never exposes private, active, or cross-household entries", () => {
+    expect(
+      canViewTrashEntry(
+        { ...deleted, visibility: "PRIVATE", deletedFromStatus: "PUBLISHED" },
+        partner,
+      ),
+    ).toBe(false);
+    expect(canViewTrashEntry({ ...deleted, status: "PUBLISHED", deletedFromStatus: "PUBLISHED" }, partner)).toBe(false);
+    expect(canViewTrashEntry({ ...deleted, deletedFromStatus: "PUBLISHED" }, stranger)).toBe(false);
   });
 });
 

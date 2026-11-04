@@ -21,6 +21,7 @@ let db: typeof import("@/lib/db").prisma;
 let lifecycle: typeof import("@/lib/media-lifecycle");
 let entryLifecycle: typeof import("@/lib/entry-lifecycle");
 let cleanup: typeof import("@/lib/trash-cleanup");
+let access: typeof import("@/lib/access");
 let householdId: string;
 let userId: string;
 
@@ -41,6 +42,7 @@ beforeAll(async () => {
   lifecycle = await import("@/lib/media-lifecycle");
   entryLifecycle = await import("@/lib/entry-lifecycle");
   cleanup = await import("@/lib/trash-cleanup");
+  access = await import("@/lib/access");
 
   const household = await db.household.create({ data: { name: "测试家庭" } });
   householdId = household.id;
@@ -208,6 +210,26 @@ describe("媒体删除与恢复（真实数据库）", () => {
     expect(await db.media.findUnique({ where: { id: media.id } })).toBeNull();
   }, 20_000);
 
+  it("30 天边界前可以恢复，恰好到期则拒绝", async () => {
+    const now = new Date();
+    const inside = await createMedia();
+    await lifecycle.softDeleteMedia(
+      inside.id,
+      new Date(now.getTime() - 30 * DAY + 1000),
+    );
+    expect((await lifecycle.restoreMedia(inside.id, now)).ok).toBe(true);
+
+    const edge = await createMedia();
+    await lifecycle.softDeleteMedia(edge.id, new Date(now.getTime() - 30 * DAY));
+    const edgeResult = await lifecycle.restoreMedia(edge.id, now);
+    expect(edgeResult.ok).toBe(false);
+    if (!edgeResult.ok) expect(edgeResult.error).toContain("30 天");
+    expect((await db.media.findUniqueOrThrow({ where: { id: edge.id } })).status).toBe("DELETED");
+
+    // 清掉边界用例，避免它被后面的自动清理批次重复统计。
+    expect((await lifecycle.purgeMedia(edge.id, now)).ok).toBe(true);
+  }, 20_000);
+
   it("恢复与彻底删除同时发生时不会出现「已恢复但文件已删除」", async () => {
     const media = await createMedia();
     await lifecycle.softDeleteMedia(media.id);
@@ -315,6 +337,74 @@ describe("记录删除与恢复（真实数据库）", () => {
   }, 20_000);
 });
 
+describe("回收站可见性（真实数据库）", () => {
+  it("其他成员只能看到明确共享且删除前不是草稿的记录", async () => {
+    const partner = await db.user.create({
+      data: {
+        email: `trash-partner-${randomUUID()}@test.local`,
+        passwordHash: "x",
+        displayName: "另一位成员",
+      },
+    });
+    const viewer = { userId: partner.id, householdId };
+    const base = {
+      householdId,
+      entryType: "GENERAL",
+      body: "可见性测试",
+      occurredAt: new Date("2026-01-01T00:00:00.000Z"),
+      status: "DELETED",
+    };
+
+    const ownPrivate = await db.entry.create({
+      data: {
+        ...base,
+        createdBy: partner.id,
+        visibility: "PRIVATE",
+        deletedFromStatus: "PUBLISHED",
+      },
+    });
+    const sharedPublished = await db.entry.create({
+      data: { ...base, createdBy: userId, visibility: "HOUSEHOLD", deletedFromStatus: "PUBLISHED" },
+    });
+    const sharedArchived = await db.entry.create({
+      data: { ...base, createdBy: userId, visibility: "HOUSEHOLD", deletedFromStatus: "ARCHIVED" },
+    });
+    const sharedDraft = await db.entry.create({
+      data: { ...base, createdBy: userId, visibility: "HOUSEHOLD", deletedFromStatus: "DRAFT" },
+    });
+    // 迁移后的历史回收站行没有保存删除前状态，按草稿处理，不对其他成员展示。
+    const legacy = await db.entry.create({
+      data: { ...base, createdBy: userId, visibility: "HOUSEHOLD", deletedFromStatus: null },
+    });
+    const otherPrivate = await db.entry.create({
+      data: { ...base, createdBy: userId, visibility: "PRIVATE", deletedFromStatus: "PUBLISHED" },
+    });
+    const notDeleted = await db.entry.create({
+      data: {
+        ...base,
+        createdBy: userId,
+        visibility: "HOUSEHOLD",
+        deletedFromStatus: "PUBLISHED",
+        status: "PUBLISHED",
+      },
+    });
+
+    const rows = await db.entry.findMany({
+      where: access.trashEntryWhere(viewer),
+      select: { id: true },
+    });
+    const ids = new Set(rows.map((row) => row.id));
+
+    expect(ids.has(ownPrivate.id)).toBe(true);
+    expect(ids.has(sharedPublished.id)).toBe(true);
+    expect(ids.has(sharedArchived.id)).toBe(true);
+    expect(ids.has(sharedDraft.id)).toBe(false);
+    expect(ids.has(legacy.id)).toBe(false);
+    expect(ids.has(otherPrivate.id)).toBe(false);
+    expect(ids.has(notDeleted.id)).toBe(false);
+  }, 20_000);
+});
+
 describe("自动清理与中断恢复（真实数据库）", () => {
   it("30 天到期后清理记录和无引用照片，被引用的照片保留", async () => {
     const now = new Date();
@@ -365,6 +455,23 @@ describe("自动清理与中断恢复（真实数据库）", () => {
     expect(result.media.purged).toBeGreaterThanOrEqual(1);
     expect(await db.media.findUnique({ where: { id: media.id } })).toBeNull();
   }, 30_000);
+
+  it("有新鲜心跳的 PURGING 不会被超时恢复回收", async () => {
+    const media = await createMedia();
+    const now = new Date();
+    await db.media.update({
+      where: { id: media.id },
+      data: {
+        status: "PURGING",
+        purgeStartedAt: new Date(now.getTime() - 60_000),
+      },
+    });
+
+    await cleanup.recoverStalePurgingMedia(now);
+    expect((await db.media.findUniqueOrThrow({ where: { id: media.id } })).status).toBe("PURGING");
+
+    await db.media.delete({ where: { id: media.id } });
+  }, 20_000);
 
   it("清理失败的项目会在下一次运行继续重试", async () => {
     const now = new Date();

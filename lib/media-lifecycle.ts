@@ -3,7 +3,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getStorageDriver, statStoredFile } from "@/lib/storage";
-import { isTrashExpired } from "@/lib/trash";
+import { isTrashExpired, TRASH_RETENTION_MS } from "@/lib/trash";
 
 /**
  * 一条媒体在业务表里可能被多种方式引用。
@@ -451,9 +451,16 @@ export async function restoreMedia(
   }
 
   const refs = parseDeletedRefs(media.deletedRefs);
+  // 上面的检查与这次更新之间可能已经过了保留期。把 30 天条件写进
+  // updateMany，让“检查是否过期”和“恢复”成为同一个原子操作。
+  const retentionCutoff = new Date(now.getTime() - TRASH_RETENTION_MS);
   const restored = await prisma.$transaction(async (tx) => {
     const claimed = await tx.media.updateMany({
-      where: { id: mediaId, status: "DELETED" },
+      where: {
+        id: mediaId,
+        status: "DELETED",
+        OR: [{ deletedAt: null }, { deletedAt: { gt: retentionCutoff } }],
+      },
       data: {
         status: "ACTIVE",
         deletedAt: null,
@@ -468,13 +475,30 @@ export async function restoreMedia(
     return true;
   });
 
-  if (!restored) return { ok: false, error: "照片状态已变化，请刷新后重试" };
+  if (!restored) {
+    const current = await prisma.media.findUnique({
+      where: { id: mediaId },
+      select: { status: true, deletedAt: true },
+    });
+    if (current?.status === "DELETED" && isTrashExpired(current.deletedAt, now)) {
+      return { ok: false, error: "已超过 30 天保留期，无法恢复" };
+    }
+    return { ok: false, error: "照片状态已变化，请刷新后重试" };
+  }
   return { ok: true };
 }
 
 export type PurgeMediaResult =
   | { ok: true; removedKeys: number; skippedShared: number }
   | { ok: false; error: string };
+
+/** 最终事务发现认领令牌已不属于自己时抛出，用于回滚整个事务。 */
+class PurgeClaimLostError extends Error {
+  constructor() {
+    super("purge claim lost");
+    this.name = "PurgeClaimLostError";
+  }
+}
 
 function referenceBlockMessage(counts: MediaReferenceCounts): string {
   const parts = describeMediaReferences(counts);
@@ -542,11 +566,14 @@ export async function purgeMedia(mediaId: string, now = new Date()): Promise<Pur
     return { ok: false, error: "照片状态不允许彻底删除" };
   }
 
+  // 认领时间使用真实当前时间，而不是批处理的起始时间：worker 一批
+  // 可能处理很久，用旧时间认领会一创建就被超时恢复当成僵死任务。
+  const claimStartedAt = new Date();
   const claimed = await prisma.media.updateMany({
     where: { id: mediaId, status: "DELETED" },
     data: {
       status: "PURGING",
-      purgeStartedAt: now,
+      purgeStartedAt: claimStartedAt,
       purgeAttemptedAt: now,
       purgeError: null,
     },
@@ -555,22 +582,44 @@ export async function purgeMedia(mediaId: string, now = new Date()): Promise<Pur
     return { ok: false, error: "照片状态已变化，请刷新后重试" };
   }
 
+  // purgeStartedAt 同时是这次清理的认领令牌。每处理一个文件前续期；
+  // 超时恢复任务只能重置仍停在旧时间戳的行，所以不会出现「任务还在删
+  // 文件，行却已被放回 DELETED 并被用户恢复」的竞争。释放和最终删除
+  // 都必须带上当前令牌，令牌不再是自己的就不能再改这一行。
+  let claimToken = claimStartedAt;
+  const stillOwnsClaim = async (): Promise<boolean> => {
+    const renewedAt = new Date();
+    const renewed = await prisma.media.updateMany({
+      where: { id: mediaId, status: "PURGING", purgeStartedAt: claimToken },
+      data: { purgeStartedAt: renewedAt },
+    });
+    if (renewed.count !== 1) return false;
+    claimToken = renewedAt;
+    return true;
+  };
+  const claimLost = (): PurgeMediaResult => ({
+    ok: false,
+    error: "清理任务已被其他任务接管，请刷新后重试",
+  });
+
   const release = async (rawError: string): Promise<PurgeMediaResult> => {
     const error = rawError.slice(0, 500);
     console.error("[media purge] 彻底删除失败", mediaId, error);
-    await prisma.media
-      .updateMany({
-        where: { id: mediaId, status: "PURGING" },
+    try {
+      const released = await prisma.media.updateMany({
+        where: { id: mediaId, status: "PURGING", purgeStartedAt: claimToken },
         data: {
           status: "DELETED",
           purgeStartedAt: null,
           purgeError: error,
           purgeAttemptedAt: now,
         },
-      })
-      .catch((writeError) => {
-        console.error("[media purge] 无法记录失败原因", mediaId, writeError);
       });
+      // 令牌已经不属于自己（被超时恢复或另一次清理接管），不能回写状态。
+      if (released.count === 0) return claimLost();
+    } catch (writeError) {
+      console.error("[media purge] 无法记录失败原因", mediaId, writeError);
+    }
     return { ok: false, error };
   };
 
@@ -593,6 +642,9 @@ export async function purgeMedia(mediaId: string, now = new Date()): Promise<Pur
   const removable = keys.filter((key) => !shared.has(key));
   const failures: string[] = [];
   for (const key of removable) {
+    // 每个文件删除前续期。若恢复任务已把这一行放回 DELETED，立刻停手，
+    // 不再继续删除原图。
+    if (!(await stillOwnsClaim())) return claimLost();
     try {
       await driver.remove(key);
     } catch (error) {
@@ -606,6 +658,7 @@ export async function purgeMedia(mediaId: string, now = new Date()): Promise<Pur
   }
 
   // 文件清理期间如果又出现了新的业务引用，不能删除数据库行。
+  if (!(await stillOwnsClaim())) return claimLost();
   const latest = await getMediaReferenceCount(mediaId);
   if (blockingReferenceCount(latest) > 0) {
     return release(referenceBlockMessage(latest));
@@ -613,6 +666,14 @@ export async function purgeMedia(mediaId: string, now = new Date()): Promise<Pur
 
   try {
     await prisma.$transaction(async (tx) => {
+      // 先按令牌删除并检查影响行数：只有真正删掉自己认领的那一行，
+      // 才能报告彻底删除成功。行数不是 1 说明恢复或超时回收已经接管，
+      // 抛出后事务回滚，下面的关联也不会被清理。
+      const deleted = await tx.media.deleteMany({
+        where: { id: mediaId, status: "PURGING", purgeStartedAt: claimToken },
+      });
+      if (deleted.count !== 1) throw new PurgeClaimLostError();
+
       // 相册关联属于媒体自身的整理关系，彻底删除时级联移除。
       await tx.albumMedia.deleteMany({ where: { mediaId } });
       await tx.album.updateMany({ where: { coverMediaId: mediaId }, data: { coverMediaId: null } });
@@ -625,9 +686,9 @@ export async function purgeMedia(mediaId: string, now = new Date()): Promise<Pur
         data: { avatarMediaId: null },
       });
       await tx.asset.updateMany({ where: { photoMediaId: mediaId }, data: { photoMediaId: null } });
-      await tx.media.deleteMany({ where: { id: mediaId, status: "PURGING" } });
     });
   } catch (error) {
+    if (error instanceof PurgeClaimLostError) return claimLost();
     return release(
       `数据库清理失败，可重试：${error instanceof Error ? error.message : String(error)}`,
     );

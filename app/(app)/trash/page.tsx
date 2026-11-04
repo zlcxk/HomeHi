@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, RotateCcw, Trash2 } from "lucide-react";
 import { requireContext } from "@/lib/auth";
+import { canViewTrashEntry, trashEntryWhere } from "@/lib/access";
 import { prisma } from "@/lib/db";
 import { formatDateFull, formatDateTime } from "@/lib/dates";
 import { restoreEntryAction, purgeEntryAction } from "@/app/actions/entries";
@@ -44,13 +45,11 @@ export default async function TrashPage({
   const errorMessage =
     typeof errorParam === "string" && errorParam ? errorParam.slice(0, 200) : null;
 
+  const viewer = { userId: context.user.id, householdId: context.household.id };
+
   const [entries, deletedMedia] = await Promise.all([
     prisma.entry.findMany({
-      where: {
-        householdId: context.household.id,
-        status: "DELETED",
-        OR: [{ visibility: "HOUSEHOLD" }, { createdBy: context.user.id }],
-      },
+      where: trashEntryWhere(viewer),
       orderBy: { deletedAt: "desc" },
       take: 100,
       select: {
@@ -61,6 +60,9 @@ export default async function TrashPage({
         deletedAt: true,
         deletedFromStatus: true,
         createdBy: true,
+        householdId: true,
+        visibility: true,
+        status: true,
       },
     }),
     prisma.media.findMany({
@@ -89,10 +91,9 @@ export default async function TrashPage({
     }),
   ]);
 
-  // 别人的草稿即使标了家庭可见，也不能因为进了回收站就暴露标题。
-  const visibleEntries = entries.filter(
-    (entry) => entry.createdBy === context.user.id || entry.deletedFromStatus !== "DRAFT",
-  );
+  // 查询已经按同一规则过滤；这里再校验一次，防止以后有人改查询时
+  // 悄悄把别人的草稿或私密记录带回页面。
+  const visibleEntries = entries.filter((entry) => canViewTrashEntry(entry, viewer));
   const referenceCounts = await getMediaReferenceCounts(deletedMedia.map((media) => media.id));
 
   return (
