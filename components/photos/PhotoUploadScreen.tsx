@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check } from "lucide-react";
+import {
+  finishPhotoUploadAction,
+  revalidatePhotosAction,
+} from "@/app/actions/media";
 import { MediaUploader } from "@/components/MediaUploader";
+import { SubmitButton } from "@/components/SubmitButton";
 import { VisibilityControl } from "@/components/pickers/VisibilityControl";
 
 export function PhotoUploadScreen({ defaultVisibility }: { defaultVisibility: string }) {
@@ -12,6 +17,19 @@ export function PhotoUploadScreen({ defaultVisibility }: { defaultVisibility: st
     defaultVisibility === "PRIVATE" ? "PRIVATE" : "HOUSEHOLD",
   );
   const [busy, setBusy] = useState(false);
+  const hadUploads = useRef(false);
+
+  // 上传接口无法清除浏览器里的路由缓存；全部上传结束后主动走一次
+  // Server Action，让返回照片页（包括点击导航栏）时拿到最新列表。
+  useEffect(() => {
+    if (busy) {
+      hadUploads.current = true;
+      return;
+    }
+    if (!hadUploads.current) return;
+    hadUploads.current = false;
+    void revalidatePhotosAction().catch(() => undefined);
+  }, [busy]);
 
   return (
     <div>
@@ -30,14 +48,15 @@ export function PhotoUploadScreen({ defaultVisibility }: { defaultVisibility: st
             <h1 className="font-display mt-1 text-[30px] leading-none">上传照片和视频</h1>
           </div>
         </div>
-        <button
-          type="button"
-          className="btn btn-primary btn-sm"
-          disabled={busy}
-          onClick={() => router.push("/photos")}
-        >
-          <Check size={14} /> 完成
-        </button>
+        <form action={finishPhotoUploadAction}>
+          <SubmitButton
+            className="btn btn-primary btn-sm"
+            disabled={busy}
+            pendingText="…"
+          >
+            <Check size={14} /> 完成
+          </SubmitButton>
+        </form>
       </header>
 
       <div className="mb-5">

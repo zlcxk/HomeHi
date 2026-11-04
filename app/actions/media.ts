@@ -16,6 +16,31 @@ import {
   type ActionState,
 } from "@/lib/validation";
 
+/**
+ * 上传是 XHR 调用 Route Handler，接口里的 revalidatePath 只让服务端缓存
+ * 失效；浏览器端的 Router Cache（staleTimes.dynamic = 30 秒）仍会复用
+ * 刚访问过的 /photos 旧结果。只有 Server Action 里的 revalidatePath 会
+ * 同时清除客户端缓存，所以上传结束和点击“完成”时都要走这里。
+ */
+function revalidatePhotoCaches() {
+  revalidatePath("/photos");
+  revalidatePath("/my");
+}
+
+export async function revalidatePhotosAction(): Promise<void> {
+  const context = await getContext();
+  if (!context) redirect("/login");
+  revalidatePhotoCaches();
+}
+
+/** 照片页直接上传的“完成”：先让客户端缓存失效，再回到照片墙。 */
+export async function finishPhotoUploadAction(): Promise<void> {
+  const context = await getContext();
+  if (!context) redirect("/login");
+  revalidatePhotoCaches();
+  redirect("/photos");
+}
+
 function revalidatePhotoSurfaces(mediaId?: string) {
   // 删除/恢复会同时影响相册、记录正文、回收站和计数，按布局整体失效，
   // 避免 30 秒客户端缓存里还留着已经隐藏或刚恢复的照片。
