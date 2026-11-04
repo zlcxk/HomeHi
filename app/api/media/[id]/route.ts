@@ -42,7 +42,7 @@ export async function DELETE(
   await prisma.$transaction([
     prisma.media.update({
       where: { id },
-      data: { status: "DELETED", deletedAt: new Date() },
+      data: { status: "DELETED", deletedAt: new Date(), dedupeScope: null },
     }),
     prisma.albumMedia.deleteMany({ where: { mediaId: id } }),
   ]);

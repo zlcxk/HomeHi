@@ -49,6 +49,9 @@ export async function updateMediaAction(
       caption: parsed.data.caption || null,
       favorite: parsed.data.favorite,
       visibility: parsed.data.visibility,
+      // 可见性变化后旧的去重归属不再成立；释放它，避免后续上传
+      // 复用一条已经改变权限范围的媒体。
+      ...(media.visibility !== parsed.data.visibility ? { dedupeScope: null } : {}),
     },
   });
   revalidatePhotoSurfaces(id);
@@ -85,7 +88,7 @@ export async function deleteMediaAction(formData: FormData): Promise<void> {
   if (media.status === "ACTIVE") {
     await prisma.media.update({
       where: { id },
-      data: { status: "DELETED", deletedAt: new Date() },
+      data: { status: "DELETED", deletedAt: new Date(), dedupeScope: null },
     });
     await prisma.albumMedia.deleteMany({ where: { mediaId: id } });
   }

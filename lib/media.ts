@@ -17,6 +17,11 @@ import {
   storeThumbnail,
 } from "@/lib/media-variants";
 import type { AppContext } from "@/lib/auth";
+import {
+  dedupeScopeFor,
+  isUniqueConstraintError,
+  normalizedMediaVisibility,
+} from "@/lib/media-dedupe";
 
 const IMAGE_TYPES = new Set<string>(MEDIA_IMAGE_TYPES);
 const VIDEO_TYPES = new Set<string>(MEDIA_VIDEO_TYPES);
@@ -119,6 +124,78 @@ export type UploadedMedia = {
   originalFilename: string;
 };
 
+type UploadRecord = {
+  id: string;
+  mediaType: string;
+  width: number | null;
+  height: number | null;
+  durationSeconds: number | null;
+  thumbnailKey: string | null;
+  displayKey: string | null;
+  displaySize: number | null;
+  fileSize: number;
+  playbackStatus: string;
+  mimeType: string;
+  originalFilename: string;
+};
+
+function toUploadedMedia(media: UploadRecord): UploadedMedia {
+  return {
+    id: media.id,
+    mediaType: media.mediaType,
+    width: media.width,
+    height: media.height,
+    durationSeconds: media.durationSeconds,
+    thumbnailKey: media.thumbnailKey,
+    displayKey: media.displayKey,
+    displaySize: media.displaySize,
+    fileSize: media.fileSize,
+    playbackStatus: media.playbackStatus,
+    mimeType: media.mimeType,
+    originalFilename: media.originalFilename,
+  };
+}
+
+/**
+ * 只查找当前用户有权复用的图片：共享图片可被家庭成员复用，
+ * 私有图片只能由原上传者复用。查询条件与唯一约束保持一致，
+ * 不返回、也不泄露其他用户私有媒体的任何字段。
+ */
+async function findReusableImage(
+  checksum: string,
+  visibility: "HOUSEHOLD" | "PRIVATE",
+  context: AppContext,
+) {
+  const dedupeScope = dedupeScopeFor("IMAGE", visibility, context.user.id);
+  if (!dedupeScope) return null;
+  return prisma.media.findFirst({
+    where: {
+      householdId: context.household.id,
+      checksum,
+      dedupeScope,
+      status: "ACTIVE",
+      visibility,
+      ...(visibility === "PRIVATE" ? { uploadedBy: context.user.id } : {}),
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/** 上传失败时尽力清理本次写入的对象；清理失败必须留下可追踪日志。 */
+async function cleanupUploadObjects(
+  keys: Array<string | null | undefined>,
+  driver: Awaited<ReturnType<typeof getStorageDriver>>,
+): Promise<void> {
+  for (const key of keys) {
+    if (!key) continue;
+    try {
+      await driver.remove(key);
+    } catch (error) {
+      console.error("[media upload] 清理孤儿文件失败", key, error);
+    }
+  }
+}
+
 export async function processMediaUpload(
   file: File,
   poster: File | null,
@@ -142,13 +219,25 @@ export async function processMediaUpload(
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const checksum = createHash("sha256").update(buffer).digest("hex");
+  const isImage = IMAGE_TYPES.has(mime);
+  const mediaType: string = isImage ? "IMAGE" : "VIDEO";
+  const visibility = normalizedMediaVisibility(fields.visibility);
+  const dedupeScope = dedupeScopeFor(mediaType, visibility, context.user.id);
+
+  // 先按内容查找可复用媒体。命中时完全不写第二份原图，也不重复生成变体。
+  if (dedupeScope) {
+    const reusable = await findReusableImage(checksum, visibility, context);
+    if (reusable) {
+      void ensureThumbnail(reusable).catch(() => undefined);
+      return toUploadedMedia(reusable);
+    }
+  }
+
   const extension = MIME_EXTENSION[mime] || "bin";
   const storageKey = makeStorageKey(extension);
   // 新文件写入当前配置的活动存储后端；历史文件仍按各自记录的后端读取。
   const driver = await getStorageDriver();
-  await driver.put(storageKey, buffer, mime);
 
-  const isImage = IMAGE_TYPES.has(mime);
   let thumbnailKey: string | null = null;
   let thumbnailWidth: number | null = null;
   let thumbnailHeight: number | null = null;
@@ -159,99 +248,104 @@ export async function processMediaUpload(
   let height: number | null = null;
   let durationSeconds: number | null = null;
   let takenAt: Date | null = null;
-  const mediaType: string = isImage ? "IMAGE" : "VIDEO";
   let playbackStatus = "PENDING";
 
-  if (isImage) {
-    const meta = await imageMetadata(buffer);
-    width = meta.width;
-    height = meta.height;
-    takenAt = meta.takenAt;
-    playbackStatus = "READY";
-    // 动图转静态 WebP 会丢帧，详情页保留原文件；列表仍用第一帧缩略图。
-    if (meta.animated || mime === "image/gif") {
-      displayStatus = "SKIPPED";
-      displayError = "动图保留原文件";
-    }
-  } else {
-    const clientWidth = Number(fields.clientWidth);
-    const clientHeight = Number(fields.clientHeight);
-    width = Number.isFinite(clientWidth) && clientWidth > 0 ? Math.round(clientWidth) : null;
-    height = Number.isFinite(clientHeight) && clientHeight > 0 ? Math.round(clientHeight) : null;
-    const duration = Number(fields.durationSeconds);
-    if (Number.isFinite(duration) && duration > 0) durationSeconds = duration;
+  let created: Awaited<ReturnType<typeof prisma.media.create>>;
+  try {
+    await driver.put(storageKey, buffer, mime);
 
-    if (poster) {
-      const posterBuffer = Buffer.from(await poster.arrayBuffer());
-      if (posterBuffer.length <= 8 * 1024 * 1024) {
-        const thumb = await storeThumbnail(posterBuffer, driver, VIDEO_COVER_MAX);
-        thumbnailKey = thumb?.key ?? null;
-        thumbnailWidth = thumb?.width ?? null;
-        thumbnailHeight = thumb?.height ?? null;
-        thumbnailStatus = thumb ? "READY" : "FAILED";
-        if (!width || !height) {
-          try {
-            const meta = await sharp(posterBuffer, { failOn: "none" }).metadata();
-            width = width ?? meta.width ?? null;
-            height = height ?? meta.height ?? null;
-          } catch {
-            // ignore
+    if (isImage) {
+      const meta = await imageMetadata(buffer);
+      width = meta.width;
+      height = meta.height;
+      takenAt = meta.takenAt;
+      playbackStatus = "READY";
+      // 动图转静态 WebP 会丢帧，详情页保留原文件；列表仍用第一帧缩略图。
+      if (meta.animated || mime === "image/gif") {
+        displayStatus = "SKIPPED";
+        displayError = "动图保留原文件";
+      }
+    } else {
+      const clientWidth = Number(fields.clientWidth);
+      const clientHeight = Number(fields.clientHeight);
+      width = Number.isFinite(clientWidth) && clientWidth > 0 ? Math.round(clientWidth) : null;
+      height = Number.isFinite(clientHeight) && clientHeight > 0 ? Math.round(clientHeight) : null;
+      const duration = Number(fields.durationSeconds);
+      if (Number.isFinite(duration) && duration > 0) durationSeconds = duration;
+
+      if (poster) {
+        const posterBuffer = Buffer.from(await poster.arrayBuffer());
+        if (posterBuffer.length <= 8 * 1024 * 1024) {
+          const thumb = await storeThumbnail(posterBuffer, driver, VIDEO_COVER_MAX);
+          thumbnailKey = thumb?.key ?? null;
+          thumbnailWidth = thumb?.width ?? null;
+          thumbnailHeight = thumb?.height ?? null;
+          thumbnailStatus = thumb ? "READY" : "FAILED";
+          if (!width || !height) {
+            try {
+              const meta = await sharp(posterBuffer, { failOn: "none" }).metadata();
+              width = width ?? meta.width ?? null;
+              height = height ?? meta.height ?? null;
+            } catch {
+              // ignore
+            }
           }
         }
       }
+      const clientTaken = fields.clientTakenAt ? new Date(fields.clientTakenAt) : null;
+      if (clientTaken && !Number.isNaN(clientTaken.getTime())) takenAt = clientTaken;
     }
-    const clientTaken = fields.clientTakenAt ? new Date(fields.clientTakenAt) : null;
-    if (clientTaken && !Number.isNaN(clientTaken.getTime())) takenAt = clientTaken;
+
+    if (!takenAt) takenAt = new Date();
+
+    created = await prisma.media.create({
+      data: {
+        householdId: context.household.id,
+        uploadedBy: context.user.id,
+        mediaType,
+        originalFilename: sanitizeFilename(file.name),
+        mimeType: mime,
+        fileSize: file.size,
+        storageKey,
+        storageDriver: driver.kind,
+        thumbnailKey,
+        thumbnailWidth,
+        thumbnailHeight,
+        thumbnailStatus,
+        thumbnailVersion: thumbnailKey ? THUMB_VERSION : 0,
+        displayStatus,
+        displayError,
+        playbackStatus,
+        width,
+        height,
+        durationSeconds,
+        takenAt,
+        visibility,
+        checksum,
+        dedupeScope,
+      },
+    });
+  } catch (error) {
+    // 数据库写入失败、存储失败或客户端中断：删除本次刚写入的对象。
+    await cleanupUploadObjects([storageKey, thumbnailKey], driver);
+
+    // 并发上传同一张图时另一个请求可能已先创建成功，复用它的媒体记录。
+    if (dedupeScope && isUniqueConstraintError(error)) {
+      const reusable = await findReusableImage(checksum, visibility, context);
+      if (reusable) {
+        void ensureThumbnail(reusable).catch(() => undefined);
+        return toUploadedMedia(reusable);
+      }
+    }
+    throw error;
   }
-
-  if (!takenAt) takenAt = new Date();
-
-  const media = await prisma.media.create({
-    data: {
-      householdId: context.household.id,
-      uploadedBy: context.user.id,
-      mediaType,
-      originalFilename: sanitizeFilename(file.name),
-      mimeType: mime,
-      fileSize: file.size,
-      storageKey,
-      storageDriver: driver.kind,
-      thumbnailKey,
-      thumbnailWidth,
-      thumbnailHeight,
-      thumbnailStatus,
-      thumbnailVersion: thumbnailKey ? THUMB_VERSION : 0,
-      displayStatus,
-      displayError,
-      playbackStatus,
-      width,
-      height,
-      durationSeconds,
-      takenAt,
-      visibility: fields.visibility === "PRIVATE" ? "PRIVATE" : "HOUSEHOLD",
-      checksum,
-    },
-  });
 
   // 上传响应先返回；缩略图在后台补。没有 worker 时，列表第一次请求也会兜底生成。
   if (isImage) {
-    void ensureThumbnail(media).catch(() => undefined);
+    void ensureThumbnail(created).catch(() => undefined);
   }
 
-  return {
-    id: media.id,
-    mediaType,
-    width: media.width,
-    height: media.height,
-    durationSeconds: media.durationSeconds,
-    thumbnailKey: media.thumbnailKey,
-    displayKey: media.displayKey,
-    displaySize: media.displaySize,
-    fileSize: media.fileSize,
-    playbackStatus: media.playbackStatus,
-    mimeType: media.mimeType,
-    originalFilename: media.originalFilename,
-  };
+  return toUploadedMedia(created);
 }
 
 export function mediaTypeLabel(mediaType: string): string {

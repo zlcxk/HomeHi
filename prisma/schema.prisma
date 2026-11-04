@@ -328,6 +328,9 @@ model Media {
   status           String    @default("ACTIVE") // ACTIVE | DELETED
   isDemo           Boolean   @default(false)
   checksum         String?
+  // 内容去重范围：共享图片为 SHARED，私有图片为上传者 userId。
+  // 视频和历史数据为 null，不参与去重；SQLite 唯一索引允许多个 NULL。
+  dedupeScope      String?
   deletedAt        DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -341,6 +344,8 @@ model Media {
 
   @@index([householdId, status, takenAt])
   @@index([householdId, status, createdAt])
+  // 同一家庭内：共享图片按 SHARED 去重，私有图片按上传者去重。
+  @@unique([householdId, checksum, dedupeScope])
 }
 
 model EntryMedia {
