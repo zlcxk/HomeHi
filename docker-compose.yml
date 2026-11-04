@@ -3,8 +3,12 @@
 # 不需要在这里重复声明（这里只覆盖容器内必须不同的路径类变量）。
 services:
   web:
-    # 使用项目维护者发布的 AMD64 镜像；版本由 .env 的 HOMEHI_VERSION 控制。
-    # 本机不构建镜像，NAS 只拉取与运行。
+    # 本地开发/自建镜像时：docker compose build web（或 up --build）。
+    build:
+      context: .
+      target: web
+    # 默认使用项目维护者发布的 AMD64 镜像；版本由 .env 的 HOMEHI_VERSION 控制。
+    # NAS 部署不构建镜像，只拉取并运行。
     image: registry.cn-hangzhou.aliyuncs.com/opxk-public/homehi-web:${HOMEHI_VERSION:-latest}
     restart: unless-stopped
     env_file: .env
@@ -25,6 +29,10 @@ services:
       start_period: 30s
 
   worker:
+    # 本地开发/自建镜像时：docker compose build worker（或 up --build）。
+    build:
+      context: .
+      target: worker
     image: registry.cn-hangzhou.aliyuncs.com/opxk-public/homehi-worker:${HOMEHI_VERSION:-latest}
     restart: unless-stopped
     command: ["npm", "run", "worker:prod"]
