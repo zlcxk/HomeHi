@@ -78,6 +78,7 @@ export function MediaGrid({
       ))}
 
       <div className="pt-1 text-center">
+        <p className="mb-2 text-[11px] text-faint">已加载 {items.length} 张</p>
         {error ? <p className="mb-2 text-[11.5px] text-danger">{error}</p> : null}
         {cursor ? (
           <button

@@ -54,25 +54,88 @@ export type MediaPage = {
   nextCursor: string | null;
 };
 
+/**
+ * 用游标行的排序值做 keyset 查询。Prisma 自带的 cursor 会生成多重 OR 子查询，
+ * 十万级数据下无法稳定命中索引；这里手工拆成“非空拍摄时间”和“空拍摄时间”
+ * 两段，前者耗尽后再接上后者，顺序仍是 [takenAt desc, createdAt desc, id desc]。
+ */
 export async function getPhotoMediaPage(
   viewer: MediaViewer,
   timezone: string,
   options: { view?: MediaListView; cursor?: string | null } = {},
 ): Promise<MediaPage> {
   const cursor = normalizeMediaCursor(options.cursor);
-  const where: Prisma.MediaWhereInput = {
+  const base: Prisma.MediaWhereInput = {
     ...mediaWhere(viewer),
     ...(options.view === "videos" ? { mediaType: "VIDEO" } : {}),
     ...(options.view === "favorites" ? { favorite: true } : {}),
   };
 
-  const rows = await prisma.media.findMany({
-    where,
-    orderBy: mediaOrderBy(),
-    take: MEDIA_PAGE_SIZE + 1,
-    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-    select: MEDIA_GRID_SELECT,
-  });
+  const anchor = cursor
+    ? await prisma.media.findFirst({
+        where: { id: cursor, householdId: viewer.householdId },
+        select: { id: true, takenAt: true, createdAt: true },
+      })
+    : null;
+  // 游标对应的媒体已被硬删除时没有可续接的位置，避免从头重复返回。
+  if (cursor && !anchor) return { items: [], nextCursor: null };
+
+  let rows: MediaGridRow[] = [];
+  if (!anchor) {
+    rows = await prisma.media.findMany({
+      where: base,
+      orderBy: mediaOrderBy(),
+      take: MEDIA_PAGE_SIZE + 1,
+      select: MEDIA_GRID_SELECT,
+    });
+  } else if (anchor.takenAt) {
+    const takenAt = anchor.takenAt;
+    rows = await prisma.media.findMany({
+      where: {
+        AND: [
+          base,
+          {
+            OR: [
+              { takenAt: { lt: takenAt } },
+              { takenAt, createdAt: { lt: anchor.createdAt } },
+              { takenAt, createdAt: anchor.createdAt, id: { lt: anchor.id } },
+            ],
+          },
+        ],
+      },
+      orderBy: mediaOrderBy(),
+      take: MEDIA_PAGE_SIZE + 1,
+      select: MEDIA_GRID_SELECT,
+    });
+    // 非空拍摄时间已到末尾时，NULL 组按 createdAt 继续。
+    if (rows.length <= MEDIA_PAGE_SIZE) {
+      const rest = await prisma.media.findMany({
+        where: { AND: [base, { takenAt: null }] },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: MEDIA_PAGE_SIZE + 1 - rows.length,
+        select: MEDIA_GRID_SELECT,
+      });
+      rows = [...rows, ...rest];
+    }
+  } else {
+    rows = await prisma.media.findMany({
+      where: {
+        AND: [
+          base,
+          {
+            takenAt: null,
+            OR: [
+              { createdAt: { lt: anchor.createdAt } },
+              { createdAt: anchor.createdAt, id: { lt: anchor.id } },
+            ],
+          },
+        ],
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: MEDIA_PAGE_SIZE + 1,
+      select: MEDIA_GRID_SELECT,
+    });
+  }
 
   const hasMore = rows.length > MEDIA_PAGE_SIZE;
   const page = rows.slice(0, MEDIA_PAGE_SIZE);
@@ -93,6 +156,14 @@ export async function getAlbumMediaPage(
   cursorParam?: string | null,
 ): Promise<MediaPage> {
   const cursor = normalizeMediaCursor(cursorParam);
+  const anchor = cursor
+    ? await prisma.albumMedia.findUnique({
+        where: { albumId_mediaId: { albumId, mediaId: cursor } },
+        select: { sortOrder: true, mediaId: true },
+      })
+    : null;
+  if (cursor && !anchor) return { items: [], nextCursor: null };
+
   const rows = await prisma.albumMedia.findMany({
     where: {
       albumId,
@@ -101,12 +172,17 @@ export async function getAlbumMediaPage(
         status: "ACTIVE",
         OR: [{ visibility: "HOUSEHOLD" }, { uploadedBy: viewer.userId }],
       },
+      ...(anchor
+        ? {
+            OR: [
+              { sortOrder: { gt: anchor.sortOrder } },
+              { sortOrder: anchor.sortOrder, mediaId: { gt: anchor.mediaId } },
+            ],
+          }
+        : {}),
     },
     orderBy: [{ sortOrder: "asc" }, { mediaId: "asc" }],
     take: MEDIA_PAGE_SIZE + 1,
-    ...(cursor
-      ? { cursor: { albumId_mediaId: { albumId, mediaId: cursor } }, skip: 1 }
-      : {}),
     select: { media: { select: MEDIA_GRID_SELECT } },
   });
 
@@ -145,8 +221,14 @@ export async function getAlbumPickerPage(
   };
 }
 
-export async function countAlbumMedia(viewer: MediaViewer, albumId: string): Promise<number> {
-  return prisma.albumMedia.count({
+/** 相册数量上限：超过 1000 后只显示“1000+”，避免十万级相册每次全量计数。 */
+export const ALBUM_MEDIA_COUNT_CAP = 1000;
+
+export async function countAlbumMedia(
+  viewer: MediaViewer,
+  albumId: string,
+): Promise<{ count: number; capped: boolean }> {
+  const rows = await prisma.albumMedia.findMany({
     where: {
       albumId,
       media: {
@@ -155,5 +237,11 @@ export async function countAlbumMedia(viewer: MediaViewer, albumId: string): Pro
         OR: [{ visibility: "HOUSEHOLD" }, { uploadedBy: viewer.userId }],
       },
     },
+    take: ALBUM_MEDIA_COUNT_CAP + 1,
+    select: { mediaId: true },
   });
+  return {
+    count: Math.min(rows.length, ALBUM_MEDIA_COUNT_CAP),
+    capped: rows.length > ALBUM_MEDIA_COUNT_CAP,
+  };
 }

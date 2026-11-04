@@ -21,15 +21,8 @@ export default async function PhotosPage({
   const view = normalizeMediaListView(viewParam);
 
   const visibleMedia = mediaWhere(viewer);
-  const [initialPage, total, albums] = await Promise.all([
+  const [initialPage, albums] = await Promise.all([
     getPhotoMediaPage(viewer, timezone, { view }),
-    prisma.media.count({
-      where: {
-        ...visibleMedia,
-        ...(view === "videos" ? { mediaType: "VIDEO" } : {}),
-        ...(view === "favorites" ? { favorite: true } : {}),
-      },
-    }),
     prisma.album.findMany({
       where: { householdId: context.household.id },
       orderBy: { updatedAt: "desc" },
@@ -44,16 +37,6 @@ export default async function PhotosPage({
       },
     }),
   ]);
-
-  const albumIds = albums.map((album) => album.id);
-  const albumCounts = albumIds.length
-    ? await prisma.albumMedia.groupBy({
-        by: ["albumId"],
-        where: { albumId: { in: albumIds }, media: visibleMedia },
-        _count: { _all: true },
-      })
-    : [];
-  const countByAlbum = new Map(albumCounts.map((row) => [row.albumId, row._count._all]));
 
   const filtered = view !== "all";
 
@@ -104,7 +87,6 @@ export default async function PhotosPage({
                     )}
                   </div>
                   <p className="mt-1.5 truncate text-[12.5px] font-medium">{album.name}</p>
-                  <p className="text-[10.5px] text-faint">{countByAlbum.get(album.id) ?? 0} 张</p>
                 </Link>
               );
             })}
@@ -122,7 +104,6 @@ export default async function PhotosPage({
         <Link href="/photos?view=videos" className={`chip ${view === "videos" ? "chip-active" : ""}`}>
           <Film size={12} /> 视频
         </Link>
-        <span className="ml-auto text-[11px] text-faint">{total} 项</span>
       </div>
 
       {initialPage.items.length === 0 ? (

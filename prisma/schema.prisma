@@ -342,9 +342,15 @@ model Media {
   tags            MediaTag[]
   tripVisitPhotos TripVisitPhoto[]
 
-  @@index([householdId, status, takenAt])
-  @@index([householdId, status, createdAt])
+  // 列表按 [takenAt, createdAt, id] 稳定排序；游标查询依赖完整的排序键。
+  @@index([householdId, status, takenAt, createdAt, id])
+  @@index([householdId, status, createdAt, id])
+  // 视频筛选与首页“最近照片”按类型取图。
+  @@index([householdId, status, mediaType, takenAt, createdAt, id])
+  // 收藏筛选：避免先按时间扫描整库再过滤。
+  @@index([householdId, status, favorite, takenAt, createdAt, id])
   // 同一家庭内：共享图片按 SHARED 去重，私有图片按上传者去重。
+  // 唯一索引已覆盖去重查询，无需再为 checksum 单独建索引。
   @@unique([householdId, checksum, dedupeScope])
 }
 
@@ -390,8 +396,10 @@ model AlbumMedia {
   media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
 
   @@id([albumId, mediaId])
-  @@index([albumId, sortOrder])
-  @@index([mediaId])
+  // 相册详情按自定义 sortOrder 游标分页；mediaId 是稳定的第二排序键。
+  @@index([albumId, sortOrder, mediaId])
+  // 反向查询“这张图属于哪些相册”，也用于 picker 的排除条件。
+  @@index([mediaId, albumId])
 }
 
 model Tag {

@@ -22,7 +22,7 @@ export default async function AlbumDetailPage({ params }: { params: Promise<{ id
   });
   if (!album) notFound();
 
-  const [count, initialPage, cover] = await Promise.all([
+  const [albumCount, initialPage, cover] = await Promise.all([
     countAlbumMedia(viewer, album.id),
     getAlbumMediaPage(viewer, album.id, timezone),
     album.coverMediaId
@@ -32,6 +32,7 @@ export default async function AlbumDetailPage({ params }: { params: Promise<{ id
         })
       : Promise.resolve(null),
   ]);
+  const countLabel = `${albumCount.count}${albumCount.capped ? "+" : ""}`;
   // 封面不在第一页或不满足可见性时，退回到第一张可见图片。
   const hero =
     cover ??
@@ -74,13 +75,13 @@ export default async function AlbumDetailPage({ params }: { params: Promise<{ id
             className="aspect-[16/9] w-full object-cover"
           />
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-5 pb-5 pt-16">
-            <p className="eyebrow text-white/60">Album · {count} 张</p>
+            <p className="eyebrow text-white/60">Album · {countLabel} 张</p>
             <h1 className="font-display mt-1 text-[32px] leading-none text-white">{album.name}</h1>
           </div>
         </div>
       ) : (
         <div className="mb-6">
-          <p className="eyebrow">Album · {count} 张</p>
+          <p className="eyebrow">Album · {countLabel} 张</p>
           <h1 className="font-display mt-1 text-[34px] leading-tight">{album.name}</h1>
         </div>
       )}
@@ -96,7 +97,7 @@ export default async function AlbumDetailPage({ params }: { params: Promise<{ id
         </Link>
       </div>
 
-      {count === 0 ? (
+      {albumCount.count === 0 ? (
         <EmptyState
           icon={<ImagePlus strokeWidth={1.7} />}
           title="这个相册还空着"
