@@ -22,13 +22,23 @@ import { mediaWhere, tripWhere } from "@/lib/access";
 import { formatDateFull, formatDayRange } from "@/lib/dates";
 import {
   linkLabel,
+  tripCategoryGroups,
   tripKindLabel,
   tripLinkKind,
   tripProgress,
   tripRegions,
   tripStatusLabel,
 } from "@/lib/travel";
-import { deleteTripAction, deleteTripLinkAction } from "@/app/actions/travel";
+import {
+  findTravelTemplate,
+  isCategorizedTemplate,
+  templateCategoryNames,
+} from "@/lib/travel-templates";
+import {
+  clearTripPlaceVisitsAction,
+  deleteTripAction,
+  deleteTripLinkAction,
+} from "@/app/actions/travel";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { CopyButton } from "@/components/CopyButton";
 import { TripLinkForm } from "@/components/travel/TripLinkForm";
@@ -96,6 +106,12 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
     0,
   );
   const isTheme = trip.kind === "THEME";
+  const template = trip.templateId ? findTravelTemplate(trip.templateId) : undefined;
+  const categorized = isCategorizedTemplate(template);
+  const categoryOrder = template ? templateCategoryNames(template) : [];
+  const categoryGroups = categorized ? tripCategoryGroups(trip.places, categoryOrder) : [];
+  const unitLabel = categorized ? "事项" : "地点";
+  const completedLabel = categorized ? "已完成" : "已打卡";
 
   return (
     <div>
@@ -138,6 +154,7 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="chip">{tripKindLabel(trip.kind)}</span>
             <span className="chip">{tripStatusLabel(trip.status)}</span>
+            {categorized ? <span className="chip">{categoryOrder.length} 个分类</span> : null}
             {trip.visibility === "PRIVATE" ? <span className="chip">仅自己可见</span> : null}
           </div>
           <h1 className="font-display mt-2.5 text-[30px] leading-tight">{trip.title}</h1>
@@ -171,7 +188,8 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
             <div className="mt-5 rounded-2xl bg-raised/60 px-4 py-3.5">
               <div className="flex items-baseline justify-between">
                 <p className="text-[12px] font-medium">
-                  已打卡 {progress.visited}/{progress.total} 个地点
+                  {completedLabel} {progress.visited}/{progress.total}
+                  {categorized ? " 件事项" : " 个地点"}
                 </p>
                 <p className="text-[11px] font-semibold text-accent">{progress.percent}%</p>
               </div>
@@ -188,9 +206,9 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
 
       <div className="mt-3 grid grid-cols-4 gap-2">
         {[
-          { label: "地点", value: progress.total, icon: MapPin },
-          { label: "已打卡", value: progress.visited, icon: CheckCircle2 },
-          { label: "到访", value: visits.length, icon: Compass },
+          { label: unitLabel, value: progress.total, icon: MapPin },
+          { label: completedLabel, value: progress.visited, icon: CheckCircle2 },
+          { label: categorized ? "打卡" : "到访", value: visits.length, icon: Compass },
           { label: "照片", value: photoCount, icon: Images },
         ].map((stat) => {
           const Icon = stat.icon;
@@ -207,18 +225,89 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
       <section className="mt-7">
         <div className="mb-2.5 flex items-center justify-between">
           <h2 className="text-[13px] font-semibold">
-            地点 <span className="font-normal text-faint">{progress.total}</span>
+            {unitLabel} <span className="font-normal text-faint">{progress.total}</span>
+            {categorized ? (
+              <span className="ml-1.5 font-normal text-faint">{progress.visited} 已完成</span>
+            ) : null}
           </h2>
           <Link href={`/travel/${trip.id}/places/new`} className="btn btn-ghost btn-sm">
-            <Plus size={13} /> 添加地点
+            <Plus size={13} /> 添加{unitLabel}
           </Link>
         </div>
 
         {trip.places.length === 0 ? (
           <div className="rounded-[20px] border border-dashed border-line-strong px-4 py-5 text-[12px] text-faint">
-            {isTheme
-              ? "先把你想要走完的地方列出来，去到之后打个卡，进度会自动累计。"
-              : "把这次要去、去过的地方加进来，每个地点都可以打卡和留照片。"}
+            {categorized
+              ? "这个主题还没有事项。添加想一起完成的事，完成之后打个卡。"
+              : isTheme
+                ? "先把你想要走完的地方列出来，去到之后打个卡，进度会自动累计。"
+                : "把这次要去、去过的地方加进来，每个地点都可以打卡和留照片。"}
+          </div>
+        ) : categorized ? (
+          <div className="space-y-3">
+            {categoryGroups.map((group) => (
+              <div key={group.name} className="card overflow-hidden">
+                <div className="border-b border-line px-4 py-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h3 className="text-[12.5px] font-semibold">{group.name}</h3>
+                    <span className="shrink-0 text-[10.5px] text-faint">
+                      {group.visited}/{group.total} · {group.percent}%
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-raised">
+                    <div
+                      className="h-full rounded-full bg-accent transition-[width] duration-500"
+                      style={{ width: `${group.percent}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="divide-y divide-line">
+                  {group.places.map((place, index) => {
+                    const latest = place.visits[0];
+                    return (
+                      <div key={place.id} className="flex items-center gap-2 px-3.5 py-2.5">
+                        <span className="w-5 shrink-0 text-[10px] tabular-nums text-faint">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <span className={latest ? "shrink-0 text-sage" : "shrink-0 text-faint"}>
+                          {latest ? <CheckCircle2 size={16} /> : <Circle size={15} />}
+                        </span>
+                        <Link
+                          href={`/travel/${trip.id}/places/${place.id}`}
+                          prefetch
+                          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-0.5 transition hover:text-accent"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[13px] font-medium">
+                              {place.name}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[10.5px] text-faint">
+                              {latest
+                                ? `完成于 ${formatDateFull(latest.visitedAt, timezone)}`
+                                : "还没完成"}
+                            </span>
+                          </span>
+                          <ArrowRight size={13} className="shrink-0 text-faint" />
+                        </Link>
+                        {latest ? (
+                          <form action={clearTripPlaceVisitsAction} className="shrink-0">
+                            <input type="hidden" name="tripId" value={trip.id} />
+                            <input type="hidden" name="placeId" value={place.id} />
+                            <ConfirmButton
+                              className="text-[10.5px] text-faint transition hover:text-danger"
+                              message="取消完成？这个事项的全部打卡记录和照片关联会被删除，照片仍留在照片库。"
+                              pendingText="取消中"
+                            >
+                              取消完成
+                            </ConfirmButton>
+                          </form>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="card divide-y divide-line overflow-hidden">
@@ -253,9 +342,11 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
 
       {visits.length > 0 ? (
         <section className="mt-7">
-          <h2 className="mb-2.5 text-[13px] font-semibold">最近到访</h2>
+          <h2 className="mb-2.5 text-[13px] font-semibold">
+            {categorized ? "完成的回忆" : "最近到访"}
+          </h2>
           <div className="space-y-2.5">
-            {visits.slice(0, 6).map((visit) => {
+            {(categorized ? visits : visits.slice(0, 6)).map((visit) => {
               const photos = visit.photos.filter((photo) => canSeeMedia(photo.media));
               return (
                 <div key={visit.id} className="card p-4">
@@ -270,6 +361,11 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
                       {formatDateFull(visit.visitedAt, timezone)}
                     </span>
                   </div>
+                  {visit.location ? (
+                    <p className="mt-1 inline-flex items-center gap-1 text-[10.5px] text-faint">
+                      <MapPin size={10} /> {visit.location}
+                    </p>
+                  ) : null}
                   {visit.note ? (
                     <p className="mt-1.5 line-clamp-3 whitespace-pre-wrap text-[11.5px] leading-relaxed text-muted">
                       {visit.note}

@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" role="img" aria-label="经济条件不错的情侣 100 件事">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdf2e2"/>
+      <stop offset="0.62" stop-color="#f4cfb6"/>
+      <stop offset="1" stop-color="#e7ab92"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#486353"/>
+      <stop offset="1" stop-color="#2e4639"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="640" fill="url(#sky)"/>
+  <circle cx="846" cy="250" r="150" fill="#e75d31" opacity="0.12"/>
+  <circle cx="846" cy="250" r="96" fill="#e75d31" opacity="0.92"/>
+
+  <!-- 云与飞机 -->
+  <g fill="#f7f1e7" opacity="0.55">
+    <ellipse cx="240" cy="150" rx="120" ry="26"/>
+    <ellipse cx="318" cy="132" rx="76" ry="20"/>
+    <ellipse cx="1040" cy="112" rx="100" ry="22"/>
+  </g>
+  <path d="M120 214 L 430 178" stroke="#f7f1e7" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+  <g transform="translate(430 178) rotate(-4)">
+    <path d="M0 0 l74 -12 22 -26 12 4 -10 24 34 -4 16 -18 9 3 -6 17 34 -2 -22 24 -142 20 -26 -14 Z" fill="#3f5947"/>
+    <circle cx="72" cy="-6" r="5" fill="#f7f1e7"/>
+  </g>
+
+  <!-- 远山 -->
+  <path d="M0 416 L 160 328 L 286 402 L 420 302 L 574 416 Z" fill="#cbb392" opacity="0.85"/>
+  <path d="M470 416 L 640 318 L 792 406 L 936 332 L 1140 416 Z" fill="#bda382" opacity="0.8"/>
+
+  <!-- 海面 -->
+  <rect x="0" y="416" width="1200" height="224" fill="url(#sea)"/>
+  <g fill="#f7f1e7" opacity="0.28">
+    <rect x="150" y="470" width="130" height="5" rx="2.5"/>
+    <rect x="330" y="510" width="90" height="5" rx="2.5"/>
+    <rect x="760" y="492" width="150" height="5" rx="2.5"/>
+    <rect x="960" y="548" width="110" height="5" rx="2.5"/>
+    <rect x="520" y="570" width="140" height="5" rx="2.5"/>
+  </g>
+  <path d="M690 416 h312 v6 q-156 34 -312 0 Z" fill="#e75d31" opacity="0.35"/>
+
+  <!-- 城市天际线 -->
+  <g fill="#f7f1e7" opacity="0.92">
+    <rect x="60" y="286" width="54" height="130"/>
+    <rect x="126" y="246" width="42" height="170"/>
+    <rect x="180" y="312" width="70" height="104"/>
+    <rect x="262" y="270" width="38" height="146"/>
+    <polygon points="300,270 320,230 340,270"/>
+    <rect x="352" y="300" width="58" height="116"/>
+    <rect x="1030" y="300" width="52" height="116"/>
+    <rect x="1094" y="258" width="44" height="158"/>
+    <rect x="1148" y="292" width="40" height="124"/>
+  </g>
+  <g fill="#dcc9ac" opacity="0.75">
+    <rect x="72" y="304" width="10" height="12"/><rect x="92" y="304" width="10" height="12"/>
+    <rect x="72" y="330" width="10" height="12"/><rect x="92" y="330" width="10" height="12"/>
+    <rect x="138" y="266" width="9" height="12"/><rect x="156" y="266" width="9" height="12"/>
+    <rect x="138" y="292" width="9" height="12"/><rect x="156" y="292" width="9" height="12"/>
+  </g>
+
+  <!-- 前景露台 -->
+  <rect x="0" y="584" width="1200" height="56" fill="#26382e"/>
+  <g fill="none" stroke="#f7f1e7" stroke-width="4" opacity="0.75">
+    <path d="M0 606 H1200"/>
+    <path d="M120 584 V640 M320 584 V640 M520 584 V640 M720 584 V640 M920 584 V640 M1120 584 V640"/>
+  </g>
+
+  <!-- 香槟杯 -->
+  <g transform="translate(852 470)">
+    <g fill="#f7f1e7" opacity="0.9">
+      <path d="M0 0 h40 l-8 54 a12 12 0 0 1 -24 0 Z"/>
+      <rect x="17" y="66" width="6" height="34"/>
+      <rect x="4" y="100" width="32" height="5" rx="2.5"/>
+    </g>
+  </g>
+  <g transform="translate(924 470)">
+    <g fill="#f7f1e7" opacity="0.9">
+      <path d="M0 0 h40 l-8 54 a12 12 0 0 1 -24 0 Z"/>
+      <rect x="17" y="66" width="6" height="34"/>
+      <rect x="4" y="100" width="32" height="5" rx="2.5"/>
+    </g>
+  </g>
+  <g fill="#e75d31" opacity="0.85">
+    <path d="M866 478 h24 l-3 20 a9 9 0 0 1 -18 0 Z"/>
+    <path d="M938 478 h24 l-3 20 a9 9 0 0 1 -18 0 Z"/>
+  </g>
+
+  <!-- 棕榈叶 -->
+  <g fill="#3f5947" opacity="0.9">
+    <path d="M40 640 q30 -96 110 -120 q-28 74 -78 120 Z"/>
+    <path d="M112 640 q-8 -84 54 -126 q18 66 -20 126 Z"/>
+    <path d="M8 640 q-2 -62 40 -92 q12 44 -8 92 Z"/>
+  </g>
+</svg>

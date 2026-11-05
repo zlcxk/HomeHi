@@ -619,6 +619,8 @@ model Trip {
   coverMediaId String?
   /// 内置主题模板自带的静态封面，用户上传封面时以 coverMediaId 为准
   coverImage   String?
+  /// 内置模板标识。用户启用模板后，事项会复制到 TripPlace，后续与模板解耦。
+  templateId   String?
   startDate    DateTime?
   endDate      DateTime?
   status       String    @default("PLANNING") // PLANNING | ONGOING | DONE
@@ -632,6 +634,8 @@ model Trip {
   places    TripPlace[]
   links     TripLink[]
 
+  // 同一个账号重复启用同一模板时复用已有旅行，避免重复初始化事项。
+  @@unique([householdId, createdBy, templateId])
   @@index([householdId, kind])
   @@index([householdId, startDate])
   @@index([coverMediaId])
@@ -644,6 +648,8 @@ model TripPlace {
   region    String?
   address   String?
   note      String?
+  /// 内置模板的事项分类；旧数据为 null，仍按平铺地点展示。
+  category  String?
   /// 高德 POI 坐标（GCJ-02），从高德选点时写入
   latitude  Float?
   longitude Float?
@@ -662,6 +668,8 @@ model TripVisit {
   placeId   String
   visitedAt DateTime
   note      String?
+  /// 打卡地点，可选；模板事项不一定是具体地点，所以记录在到访上。
+  location  String?
   createdBy String
   createdAt DateTime @default(now())
 

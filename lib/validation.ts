@@ -192,6 +192,7 @@ export const tripPlaceSchema = z.object({
 
 export const tripVisitSchema = z.object({
   visitedAt: z.string().min(1, "请选择到访日期"),
+  location: z.string().max(120, "地点过长").optional().default(""),
   note: z.string().max(2000, "记录过长").optional().default(""),
   mediaIds: z.array(z.string()).max(30),
 });

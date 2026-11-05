@@ -30,7 +30,7 @@ export type TripProgress = {
   percent: number;
 };
 
-/** 主题进度：有到访记录的地点算已打卡。 */
+/** 主题进度：有到访记录的地点/事项算已完成。 */
 export function tripProgress(places: { visits: { id: string }[] }[]): TripProgress {
   const total = places.length;
   const visited = places.filter((place) => place.visits.length > 0).length;
@@ -39,6 +39,47 @@ export function tripProgress(places: { visits: { id: string }[] }[]): TripProgre
     visited,
     percent: total === 0 ? 0 : Math.round((visited / total) * 100),
   };
+}
+
+export type TripCategoryProgress<T> = {
+  name: string;
+  places: T[];
+  total: number;
+  visited: number;
+  percent: number;
+};
+
+/**
+ * 按分类分组并计算进度。分类顺序优先使用模板定义的顺序，
+ * 模板之外的分类按首次出现顺序排在后面；没有分类的事项归入「其他」。
+ */
+export function tripCategoryGroups<T extends { category: string | null; visits: { id: string }[] }>(
+  places: T[],
+  categoryOrder: string[] = [],
+): TripCategoryProgress<T>[] {
+  const buckets = new Map<string, T[]>();
+  for (const name of categoryOrder) {
+    if (!buckets.has(name)) buckets.set(name, []);
+  }
+  for (const place of places) {
+    const name = place.category?.trim() || "其他";
+    const bucket = buckets.get(name);
+    if (bucket) bucket.push(place);
+    else buckets.set(name, [place]);
+  }
+
+  return [...buckets.entries()]
+    .filter(([, items]) => items.length > 0)
+    .map(([name, items]) => {
+      const visited = items.filter((place) => place.visits.length > 0).length;
+      return {
+        name,
+        places: items,
+        total: items.length,
+        visited,
+        percent: items.length === 0 ? 0 : Math.round((visited / items.length) * 100),
+      };
+    });
 }
 
 /** 城市/地区去重，用来概述"走过 8 个城市"。 */

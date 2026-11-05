@@ -10,10 +10,50 @@ import { VisibilityControl } from "@/components/pickers/VisibilityControl";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
 import { TRIP_KINDS, TRIP_STATUSES } from "@/lib/travel";
-import { TRAVEL_TEMPLATES, type TravelTemplate } from "@/lib/travel-templates";
+import {
+  TRAVEL_TEMPLATES,
+  templateCategoryNames,
+  templateEntries,
+  templateItemCount,
+  type TravelTemplate,
+} from "@/lib/travel-templates";
 import type { ActionState } from "@/lib/validation";
 
 const initialState: ActionState = {};
+
+function TemplatePreview({
+  template,
+  onClear,
+}: {
+  template: TravelTemplate;
+  onClear: () => void;
+}) {
+  const count = templateItemCount(template);
+  const categories = templateCategoryNames(template);
+  const names = templateEntries(template)
+    .slice(0, 4)
+    .map((entry) => entry.name);
+
+  return (
+    <div className="mt-2.5 flex items-start justify-between gap-3">
+      <img src={template.cover} alt="" className="h-9 w-16 shrink-0 rounded-lg object-cover" />
+      <p className="text-[10.5px] leading-relaxed text-faint">
+        {categories.length > 0
+          ? `将预置 ${count} 件事项，分为 ${categories.length} 个分类：`
+          : `将预置 ${count} 个地点：`}
+        {names.join("、")}
+        {count > 4 ? " 等" : ""}。创建后可以继续增删。
+      </p>
+      <button
+        type="button"
+        onClick={onClear}
+        className="shrink-0 text-[10.5px] text-muted underline-offset-2 hover:underline"
+      >
+        不用模板
+      </button>
+    </div>
+  );
+}
 
 export type TripInitial = {
   id: string;
@@ -128,28 +168,10 @@ export function TripForm({
               })}
             </div>
             {template ? (
-              <div className="mt-2.5 flex items-start justify-between gap-3">
-                <img
-                  src={template.cover}
-                  alt=""
-                  className="h-9 w-16 shrink-0 rounded-lg object-cover"
-                />
-                <p className="text-[10.5px] leading-relaxed text-faint">
-                  将预置 {template.places.length} 个地点：
-                  {template.places
-                    .slice(0, 4)
-                    .map((place) => place.name)
-                    .join("、")}
-                  {template.places.length > 4 ? " 等" : ""}。创建后可以继续增删。
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setTemplateId(null)}
-                  className="shrink-0 text-[10.5px] text-muted underline-offset-2 hover:underline"
-                >
-                  不用模板
-                </button>
-              </div>
+              <TemplatePreview
+                template={template}
+                onClear={() => setTemplateId(null)}
+              />
             ) : (
               <p className="mt-2.5 text-[10.5px] leading-relaxed text-faint">
                 选一个模板会自动带上常见地点，也可以不选，之后一个个添加。

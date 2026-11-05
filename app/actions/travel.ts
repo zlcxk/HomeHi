@@ -7,7 +7,7 @@ import { getContext } from "@/lib/auth";
 import { dateInputToUtc } from "@/lib/dates";
 import { tripWhere } from "@/lib/access";
 import { normalizeTripLink, parseCoordinates } from "@/lib/travel";
-import { findTravelTemplate } from "@/lib/travel-templates";
+import { findTravelTemplate, templateEntries } from "@/lib/travel-templates";
 import {
   firstError,
   formArray,
@@ -94,29 +94,156 @@ export async function saveTripAction(
     if (!existing) return { error: "旅行不存在或没有编辑权限" };
     await prisma.trip.update({ where: { id }, data: payload });
   } else {
-    // 模板只提供初始地点，之后和普通主题旅行完全一样，可以自由增删
+    // 模板只提供初始地点/事项，之后和普通主题旅行完全一样，可以自由增删
     const template =
       data.kind === "THEME" && data.templateId ? findTravelTemplate(data.templateId) : undefined;
+    // 只有新的分类事项模板登记 templateId 并做幂等复用；
+    // 传统地点模板保持原有行为，允许重复创建。
+    const managedTemplate = template?.categories?.length ? template : undefined;
+
+    // 同一个账号重复启用同一模板时，直接复用已有旅行，不重复初始化事项。
+    if (managedTemplate) {
+      const existing = await prisma.trip.findFirst({
+        where: {
+          householdId: context.household.id,
+          createdBy: context.user.id,
+          templateId: managedTemplate.id,
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        revalidateTravel(existing.id);
+        redirect(`/travel/${existing.id}`);
+      }
+    }
+
+    const entries = template ? templateEntries(template) : [];
+    let created: { id: string };
+    try {
+      created = await prisma.trip.create({
+        data: {
+          ...payload,
+          householdId: context.household.id,
+          createdBy: context.user.id,
+          templateId: managedTemplate?.id ?? null,
+          coverImage: template?.cover ?? null,
+          ...(template
+            ? {
+                places: {
+                  create: entries.map((entry) => ({
+                    name: entry.name,
+                    region: entry.region || null,
+                    category: entry.category,
+                    sortOrder: entry.sortOrder,
+                  })),
+                },
+              }
+            : {}),
+        },
+        select: { id: true },
+      });
+    } catch (error) {
+      // 并发重复提交时唯一索引会拒绝第二次创建，找到已有实例即可。
+      if (managedTemplate && isUniqueConstraintError(error)) {
+        const existing = await prisma.trip.findFirst({
+          where: {
+            householdId: context.household.id,
+            createdBy: context.user.id,
+            templateId: managedTemplate.id,
+          },
+          select: { id: true },
+        });
+        if (existing) {
+          revalidateTravel(existing.id);
+          redirect(`/travel/${existing.id}`);
+        }
+      }
+      throw error;
+    }
+    tripId = created.id;
+  }
+
+  revalidateTravel(tripId);
+  redirect(`/travel/${tripId}`);
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  );
+}
+
+/**
+ * 从旅行页的主题卡片一键启用内置模板。
+ * 复用与新建主题旅行相同的数据结构；重复启用同一模板会回到已有实例。
+ */
+export async function enableTripTemplateAction(formData: FormData): Promise<void> {
+  const context = await getContext();
+  if (!context) redirect("/login");
+
+  const templateId = formString(formData, "templateId");
+  const template = findTravelTemplate(templateId);
+  if (!template?.categories?.length) redirect("/travel");
+
+  const existing = await prisma.trip.findFirst({
+    where: {
+      householdId: context.household.id,
+      createdBy: context.user.id,
+      templateId: template.id,
+    },
+    select: { id: true },
+  });
+  if (existing) {
+    revalidateTravel(existing.id);
+    redirect(`/travel/${existing.id}`);
+  }
+
+  const entries = templateEntries(template);
+  let tripId: string;
+  try {
     const created = await prisma.trip.create({
       data: {
-        ...payload,
         householdId: context.household.id,
         createdBy: context.user.id,
-        coverImage: template?.cover ?? null,
-        ...(template
-          ? {
-              places: {
-                create: template.places.map((place, index) => ({
-                  name: place.name,
-                  region: place.region,
-                  sortOrder: index,
-                })),
-              },
-            }
-          : {}),
+        kind: "THEME",
+        title: template.title,
+        subtitle: template.subtitle,
+        description: template.description,
+        coverImage: template.cover,
+        status: "PLANNING",
+        visibility: context.user.defaultVisibility === "PRIVATE" ? "PRIVATE" : "HOUSEHOLD",
+        templateId: template.id,
+        places: {
+          create: entries.map((entry) => ({
+            name: entry.name,
+            region: entry.region || null,
+            category: entry.category,
+            sortOrder: entry.sortOrder,
+          })),
+        },
       },
+      select: { id: true },
     });
     tripId = created.id;
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      const again = await prisma.trip.findFirst({
+        where: {
+          householdId: context.household.id,
+          createdBy: context.user.id,
+          templateId: template.id,
+        },
+        select: { id: true },
+      });
+      if (again) {
+        revalidateTravel(again.id);
+        redirect(`/travel/${again.id}`);
+      }
+    }
+    throw error;
   }
 
   revalidateTravel(tripId);
@@ -213,6 +340,7 @@ export async function addTripVisitAction(
   if (!context) return { error: "登录已失效，请重新登录" };
   const tripId = formString(formData, "tripId");
   const placeId = formString(formData, "placeId");
+  const visitId = formString(formData, "id");
 
   const place = await prisma.tripPlace.findFirst({
     where: {
@@ -224,8 +352,42 @@ export async function addTripVisitAction(
   });
   if (!place) return { error: "地点不存在或没有权限" };
 
+  // 编辑时只替换当前用户看得见的照片关联，保留其他成员的私密照片。
+  let editablePhotoMediaIds: string[] = [];
+  if (visitId) {
+    const visit = await prisma.tripVisit.findFirst({
+      where: {
+        id: visitId,
+        placeId,
+        place: {
+          tripId,
+          trip: tripWhere({ userId: context.user.id, householdId: context.household.id }),
+        },
+      },
+      select: {
+        id: true,
+        photos: {
+          select: {
+            mediaId: true,
+            media: { select: { status: true, visibility: true, uploadedBy: true } },
+          },
+        },
+      },
+    });
+    if (!visit) return { error: "打卡记录不存在或没有编辑权限" };
+    editablePhotoMediaIds = visit.photos
+      .filter(
+        (photo) =>
+          photo.media.status === "ACTIVE" &&
+          (photo.media.visibility === "HOUSEHOLD" ||
+            photo.media.uploadedBy === context.user.id),
+      )
+      .map((photo) => photo.mediaId);
+  }
+
   const parsed = tripVisitSchema.safeParse({
     visitedAt: formString(formData, "visitedAt"),
+    location: formString(formData, "location"),
     note: formString(formData, "note"),
     mediaIds: Array.from(new Set(formArray(formData, "mediaIds"))).slice(0, 30),
   });
@@ -248,22 +410,66 @@ export async function addTripVisitAction(
     : [];
   if (media.length !== data.mediaIds.length) return { error: "有照片已失效，请重新选择" };
 
-  await prisma.tripVisit.create({
-    data: {
-      placeId,
-      visitedAt,
-      note: data.note || null,
-      createdBy: context.user.id,
-      photos: {
-        create: data.mediaIds.map((mediaId, index) => ({ mediaId, sortOrder: index })),
+  const photoCreate = data.mediaIds.length
+    ? { create: data.mediaIds.map((mediaId, index) => ({ mediaId, sortOrder: index })) }
+    : {};
+
+  if (visitId) {
+    // 编辑时替换可见的照片关系：先删旧关联再建新关联，避免重复或孤立记录。
+    await prisma.tripVisit.update({
+      where: { id: visitId },
+      data: {
+        visitedAt,
+        location: data.location || null,
+        note: data.note || null,
+        photos: {
+          ...(editablePhotoMediaIds.length
+            ? { deleteMany: { mediaId: { in: editablePhotoMediaIds } } }
+            : {}),
+          ...photoCreate,
+        },
       },
-    },
-  });
+    });
+  } else {
+    await prisma.tripVisit.create({
+      data: {
+        placeId,
+        visitedAt,
+        location: data.location || null,
+        note: data.note || null,
+        createdBy: context.user.id,
+        ...(data.mediaIds.length ? { photos: photoCreate } : {}),
+      },
+    });
+  }
 
   revalidatePath("/travel");
   revalidatePath(`/travel/${tripId}`);
   revalidatePath(`/travel/${tripId}/places/${placeId}`);
   redirect(`/travel/${tripId}/places/${placeId}`);
+}
+
+/** 取消完成：删掉这个事项的全部打卡记录，照片关系级联删除，媒体仍留在照片库。 */
+export async function clearTripPlaceVisitsAction(formData: FormData): Promise<void> {
+  const context = await getContext();
+  if (!context) redirect("/login");
+  const tripId = formString(formData, "tripId");
+  const placeId = formString(formData, "placeId");
+
+  const place = await prisma.tripPlace.findFirst({
+    where: {
+      id: placeId,
+      tripId,
+      trip: tripWhere({ userId: context.user.id, householdId: context.household.id }),
+    },
+    select: { id: true },
+  });
+  if (!place) redirect(`/travel/${tripId}`);
+
+  await prisma.tripVisit.deleteMany({ where: { placeId } });
+  revalidatePath("/travel");
+  revalidatePath(`/travel/${tripId}`);
+  redirect(`/travel/${tripId}`);
 }
 
 export async function deleteTripVisitAction(formData: FormData): Promise<void> {

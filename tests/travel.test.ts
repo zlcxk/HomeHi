@@ -1,8 +1,21 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { linkLabel, normalizeTripLink, parseCoordinates, tripLinkKind } from "@/lib/travel";
-import { TRAVEL_TEMPLATES } from "@/lib/travel-templates";
+import {
+  linkLabel,
+  normalizeTripLink,
+  parseCoordinates,
+  tripCategoryGroups,
+  tripLinkKind,
+} from "@/lib/travel";
+import {
+  TRAVEL_TEMPLATES,
+  findTravelTemplate,
+  isCategorizedTemplate,
+  templateCategoryNames,
+  templateEntries,
+  templateItemCount,
+} from "@/lib/travel-templates";
 
 describe("normalizeTripLink", () => {
   it("adds https to bare domains", () => {
@@ -68,12 +81,12 @@ describe("parseCoordinates", () => {
 });
 
 describe("travel templates", () => {
-  it("has unique ids and at least one place each", () => {
+  it("has unique ids and at least one entry each", () => {
     const ids = new Set(TRAVEL_TEMPLATES.map((template) => template.id));
     expect(ids.size).toBe(TRAVEL_TEMPLATES.length);
     for (const template of TRAVEL_TEMPLATES) {
-      expect(template.title.length).toBeGreaterThan(0);
-      expect(template.places.length).toBeGreaterThan(0);
+      expect(template.title.length, template.id).toBeGreaterThan(0);
+      expect(templateItemCount(template), template.id).toBeGreaterThan(0);
     }
   });
 
@@ -85,14 +98,72 @@ describe("travel templates", () => {
     }
   });
 
-  it("does not repeat a place inside the same template", () => {
+  it("does not repeat an entry inside the same template", () => {
     for (const template of TRAVEL_TEMPLATES) {
-      const names = template.places.map((place) => place.name);
+      const entries = templateEntries(template);
+      const names = entries.map((entry) => entry.name);
       expect(new Set(names).size, template.id).toBe(names.length);
-      for (const place of template.places) {
-        expect(place.name.length).toBeGreaterThan(0);
-        expect(place.region.length).toBeGreaterThan(0);
+      expect(entries.map((entry) => entry.sortOrder), template.id).toEqual(
+        entries.map((_, index) => index),
+      );
+      for (const entry of entries) {
+        expect(entry.name.trim().length, template.id).toBeGreaterThan(0);
+        if (!isCategorizedTemplate(template)) {
+          expect(entry.region.length, template.id).toBeGreaterThan(0);
+          expect(entry.category).toBeNull();
+        }
       }
     }
+  });
+
+  it("ships the two couple themes as 10 categories of 10 items", () => {
+    const cases = [
+      { id: "couple-budget-100", title: "普通预算情侣的 100 件小事" },
+      { id: "couple-premium-100", title: "经济条件不错的情侣 100 件事" },
+    ];
+
+    for (const item of cases) {
+      const template = findTravelTemplate(item.id);
+      expect(template, item.id).toBeTruthy();
+      expect(template!.title).toBe(item.title);
+      expect(isCategorizedTemplate(template)).toBe(true);
+      expect(templateCategoryNames(template!)).toHaveLength(10);
+      expect(templateItemCount(template!)).toBe(100);
+
+      const entries = templateEntries(template!);
+      expect(entries).toHaveLength(100);
+      for (const category of template!.categories!) {
+        expect(category.items, category.name).toHaveLength(10);
+      }
+      for (const [index, entry] of entries.entries()) {
+        expect(entry.category, entry.name).toBeTruthy();
+        expect(entry.sortOrder, entry.name).toBe(index);
+        expect(entry.region, entry.name).toBe("");
+      }
+    }
+  });
+});
+
+describe("tripCategoryGroups", () => {
+  const place = (category: string | null, done: boolean) => ({
+    category,
+    visits: done ? [{ id: "v" }] : [],
+  });
+
+  it("keeps template category order and computes per-category progress", () => {
+    const groups = tripCategoryGroups(
+      [place("日常", true), place("日常", false), place("旅行", true)],
+      ["日常", "旅行", "未来"],
+    );
+
+    expect(groups.map((group) => group.name)).toEqual(["日常", "旅行"]);
+    expect(groups[0]).toMatchObject({ total: 2, visited: 1, percent: 50 });
+    expect(groups[1]).toMatchObject({ total: 1, visited: 1, percent: 100 });
+  });
+
+  it("puts uncategorized places into 其他 after template categories", () => {
+    const groups = tripCategoryGroups([place(null, false), place("日常", true)], ["日常"]);
+    expect(groups.map((group) => group.name)).toEqual(["日常", "其他"]);
+    expect(groups[1]).toMatchObject({ total: 1, visited: 0, percent: 0 });
   });
 });

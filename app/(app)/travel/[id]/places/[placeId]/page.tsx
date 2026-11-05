@@ -179,19 +179,33 @@ export default async function TripPlacePage({
                     <p className="mt-0.5 text-[10.5px] text-faint">
                       {visit.creator.displayName}
                     </p>
+                    {visit.location ? (
+                      <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted">
+                        <MapPin size={11} /> {visit.location}
+                      </p>
+                    ) : null}
                   </div>
-                  <form action={deleteTripVisitAction}>
-                    <input type="hidden" name="tripId" value={id} />
-                    <input type="hidden" name="placeId" value={place.id} />
-                    <input type="hidden" name="id" value={visit.id} />
-                    <ConfirmButton
-                      className="icon-btn icon-btn-plain text-faint hover:text-danger"
-                      message="删除这次到访记录？照片仍会留在照片库。"
-                      pendingText=""
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <Link
+                      href={`/travel/${id}/places/${place.id}/visits/${visit.id}/edit`}
+                      className="icon-btn icon-btn-plain text-faint hover:text-ink"
+                      aria-label="编辑这次打卡"
                     >
-                      <Trash2 size={13} />
-                    </ConfirmButton>
-                  </form>
+                      <Pencil size={13} />
+                    </Link>
+                    <form action={deleteTripVisitAction}>
+                      <input type="hidden" name="tripId" value={id} />
+                      <input type="hidden" name="placeId" value={place.id} />
+                      <input type="hidden" name="id" value={visit.id} />
+                      <ConfirmButton
+                        className="icon-btn icon-btn-plain text-faint hover:text-danger"
+                        message="删除这次到访记录？照片仍会留在照片库。"
+                        pendingText=""
+                      >
+                        <Trash2 size={13} />
+                      </ConfirmButton>
+                    </form>
+                  </div>
                 </div>
 
                 {visit.note ? (

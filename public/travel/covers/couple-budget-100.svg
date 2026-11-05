@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" role="img" aria-label="普通预算情侣的 100 件小事">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdf6e9"/>
+      <stop offset="1" stop-color="#f3dfc4"/>
+    </linearGradient>
+    <linearGradient id="blanket" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e9d7bd"/>
+      <stop offset="1" stop-color="#dcc4a4"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="640" fill="url(#sky)"/>
+  <circle cx="944" cy="170" r="132" fill="#e75d31" opacity="0.10"/>
+  <circle cx="944" cy="170" r="88" fill="#e75d31" opacity="0.92"/>
+
+  <path d="M0 430 Q 170 386 350 416 T 720 410 T 1200 428 V 640 H 0 Z" fill="#dcc9ac"/>
+  <path d="M0 492 Q 220 452 430 482 T 820 476 T 1200 494 V 640 H 0 Z" fill="#cbb392"/>
+
+  <!-- 小屋 -->
+  <g>
+    <rect x="126" y="318" width="222" height="150" rx="10" fill="#f7f1e7"/>
+    <polygon points="104,320 237,222 370,320" fill="#3f5947"/>
+    <rect x="208" y="382" width="58" height="86" rx="6" fill="#e75d31" opacity="0.85"/>
+    <rect x="152" y="356" width="38" height="38" rx="5" fill="#cbb392"/>
+    <rect x="286" y="356" width="38" height="38" rx="5" fill="#cbb392"/>
+    <rect x="330" y="252" width="20" height="56" rx="4" fill="#b39b7e"/>
+  </g>
+
+  <!-- 草地野餐 -->
+  <g>
+    <polygon points="470,548 780,548 852,640 398,640" fill="url(#blanket)"/>
+    <g opacity="0.5" fill="#f7f1e7">
+      <polygon points="522,548 585,548 552,640 476,640"/>
+      <polygon points="676,548 739,548 774,640 698,640"/>
+    </g>
+    <g>
+      <rect x="572" y="512" width="104" height="34" rx="8" fill="#b98f63"/>
+      <path d="M586 512 q38 -26 76 0" fill="none" stroke="#8f6d49" stroke-width="7"/>
+      <rect x="612" y="496" width="24" height="20" rx="6" fill="#8f6d49"/>
+    </g>
+    <g fill="#f7f1e7">
+      <path d="M500 574 h34 v26 a17 17 0 0 1 -34 0 Z"/>
+      <path d="M716 574 h34 v26 a17 17 0 0 1 -34 0 Z"/>
+    </g>
+    <g fill="none" stroke="#f7f1e7" stroke-width="5">
+      <path d="M534 580 h10 a7 7 0 0 1 0 14 h-10"/>
+      <path d="M716 580 h-10 a7 7 0 0 0 0 14 h10"/>
+    </g>
+    <g fill="none" stroke="#8f6d49" stroke-width="4" opacity="0.7">
+      <path d="M520 566 q8 -18 0 -30"/>
+      <path d="M738 566 q-8 -18 0 -30"/>
+    </g>
+  </g>
+
+  <!-- 自行车 -->
+  <g fill="none" stroke="#3f5947" stroke-width="8" stroke-linecap="round">
+    <circle cx="900" cy="556" r="50"/>
+    <circle cx="1044" cy="556" r="50"/>
+    <path d="M900 556 L950 470 L1020 470 L1044 556"/>
+    <path d="M950 470 L986 556 L900 556"/>
+    <path d="M1020 470 L1044 556"/>
+    <path d="M950 470 L938 436 M1020 470 L1032 436"/>
+    <path d="M926 436 L962 436 M1016 436 L1052 436"/>
+  </g>
+  <circle cx="950" cy="556" r="8" fill="#e75d31"/>
+  <circle cx="1044" cy="556" r="8" fill="#e75d31"/>
+
+  <!-- 植物 -->
+  <g fill="#4f6b57">
+    <path d="M1088 640 q-8 -78 26 -110 q10 48 -4 110 Z"/>
+    <path d="M1112 640 q42 -66 82 -70 q-18 44 -58 70 Z"/>
+    <path d="M1080 640 q-50 -54 -86 -54 q24 36 60 54 Z"/>
+  </g>
+</svg>
