@@ -1,16 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, Compass, Heart, MapPin, Plus, Repeat } from "lucide-react";
+import { ArrowRight, Compass, MapPin, Plus, Repeat } from "lucide-react";
 import { requireContext } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { tripWhere } from "@/lib/access";
 import { formatDayRange } from "@/lib/dates";
 import { tripProgress, tripRegions, tripStatusLabel } from "@/lib/travel";
-import {
-  TRAVEL_TEMPLATES,
-  templateCategoryNames,
-  templateItemCount,
-} from "@/lib/travel-templates";
-import { enableTripTemplateAction } from "@/app/actions/travel";
+import { findTravelTemplate, isCategorizedTemplate } from "@/lib/travel-templates";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 
@@ -27,24 +22,8 @@ export default async function TravelPage() {
     },
   });
 
-  const coupleTemplates = TRAVEL_TEMPLATES.filter((template) => template.categories?.length);
-  const coupleTemplateIds = new Set(coupleTemplates.map((template) => template.id));
-  // 自己启用的情侣主题放在上方卡片里；其他成员共享的主题仍保留在主题列表中。
-  const themes = trips.filter(
-    (trip) =>
-      trip.kind === "THEME" &&
-      !(
-        trip.createdBy === context.user.id &&
-        trip.templateId &&
-        coupleTemplateIds.has(trip.templateId)
-      ),
-  );
+  const themes = trips.filter((trip) => trip.kind === "THEME");
   const singles = trips.filter((trip) => trip.kind !== "THEME");
-  const ownTemplateTrips = new Map(
-    trips
-      .filter((trip) => trip.templateId && trip.createdBy === context.user.id)
-      .map((trip) => [trip.templateId as string, trip]),
-  );
 
   const createLink = (
     <Link href="/travel/new" prefetch className="btn btn-primary btn-sm">
@@ -61,78 +40,11 @@ export default async function TravelPage() {
         action={createLink}
       />
 
-      <section className="mb-8">
-        <div className="mb-2.5 flex items-baseline justify-between gap-3">
-          <h2 className="flex items-center gap-1.5 text-[13px] font-semibold">
-            <Heart size={14} className="text-accent" /> 情侣主题
-            <span className="font-normal text-faint">{coupleTemplates.length}</span>
-          </h2>
-          <span className="text-[10.5px] text-faint">启用后从 0 开始记录</span>
-        </div>
-        <div className="grid gap-2.5 sm:grid-cols-2">
-          {coupleTemplates.map((template) => {
-            const enabled = ownTemplateTrips.get(template.id);
-            const progress = enabled ? tripProgress(enabled.places) : null;
-            return (
-              <div key={template.id} className="card overflow-hidden">
-                <img
-                  src={template.cover}
-                  alt=""
-                  loading="lazy"
-                  className="aspect-[16/8] w-full object-cover"
-                />
-                <div className="p-4">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="chip">{templateCategoryNames(template).length} 个分类</span>
-                    <span className="chip">{templateItemCount(template)} 件事项</span>
-                  </div>
-                  <h3 className="mt-2 text-[15px] font-semibold">{template.title}</h3>
-                  <p className="mt-1 line-clamp-2 text-[11.5px] leading-relaxed text-muted">
-                    {template.description}
-                  </p>
-
-                  {enabled && progress ? (
-                    <div className="mt-3">
-                      <div className="flex items-center justify-between text-[10.5px] text-faint">
-                        <span>
-                          已完成 {progress.visited}/{progress.total}
-                        </span>
-                        <span className="font-semibold text-accent">{progress.percent}%</span>
-                      </div>
-                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-raised">
-                        <div
-                          className="h-full rounded-full bg-accent"
-                          style={{ width: `${progress.percent}%` }}
-                        />
-                      </div>
-                      <Link
-                        href={`/travel/${enabled.id}`}
-                        prefetch
-                        className="btn btn-primary btn-sm mt-3 w-full"
-                      >
-                        继续打卡
-                      </Link>
-                    </div>
-                  ) : (
-                    <form action={enableTripTemplateAction} className="mt-3">
-                      <input type="hidden" name="templateId" value={template.id} />
-                      <button type="submit" className="btn btn-primary btn-sm w-full">
-                        启用这个主题
-                      </button>
-                    </form>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
       {trips.length === 0 ? (
         <EmptyState
           icon={<Compass strokeWidth={1.7} />}
           title="还没有旅行"
-          description="新建一次单次旅行，或者挑一个主题——博物馆、古建、石窟、名山、湖泊、地标都有现成模板，路过时打个卡就好。"
+          description="新建一次单次旅行，或者挑一个主题——博物馆、古建、石窟、名山、湖泊、地标都有现成模板，也可以从两个人的 100 件小事开始。"
           action={
             <Link href="/travel/new" className="btn btn-primary btn-sm">
               开始第一段旅行
@@ -154,6 +66,12 @@ export default async function TravelPage() {
               const progress = tripProgress(trip.places);
               const regions = tripRegions(trip.places);
               const visits = trip.places.reduce((sum, place) => sum + place.visits.length, 0);
+              const categorized = isCategorizedTemplate(
+                trip.templateId ? findTravelTemplate(trip.templateId) : undefined,
+              );
+              const unitLabel = categorized ? "事项" : "地点";
+              const completedVerb = categorized ? "完成" : "打卡";
+              const visitVerb = categorized ? "次记录" : "次到访";
               return (
                 <Link
                   key={trip.id}
@@ -200,9 +118,9 @@ export default async function TravelPage() {
                       />
                     </div>
                     <p className="mt-2 text-[10.5px] text-faint">
-                      已打卡 {progress.visited}/{progress.total} 个地点
+                      已{completedVerb} {progress.visited}/{progress.total} 个{unitLabel}
                       {regions.length > 0 ? ` · ${regions.length} 个地区` : ""}
-                      {visits > 0 ? ` · ${visits} 次到访` : ""}
+                      {visits > 0 ? ` · ${visits} ${visitVerb}` : ""}
                     </p>
                   </div>
                 </Link>

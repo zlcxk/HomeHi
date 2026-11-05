@@ -174,7 +174,7 @@ export function TripForm({
               />
             ) : (
               <p className="mt-2.5 text-[10.5px] leading-relaxed text-faint">
-                选一个模板会自动带上常见地点，也可以不选，之后一个个添加。
+                选一个模板会自动带上预置地点或事项，也可以不选，之后一个个添加。
               </p>
             )}
           </div>
